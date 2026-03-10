@@ -13,10 +13,13 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "task_type": "auto",
     "random_state": 42,
     "test_size": 0.2,
+    "eval_method": "holdout",
+    "cv_folds": 5,
 }
 
 ALLOWED_REPORT_FORMATS = {"md", "html"}
 ALLOWED_TASK_TYPES = {"auto", "regression", "classification"}
+ALLOWED_EVAL_METHODS = {"holdout", "cv"}
 ALLOWED_KEYS = set(DEFAULT_SETTINGS.keys())
 
 
@@ -73,13 +76,23 @@ def validate_settings(settings: dict[str, object]) -> None:
     except (TypeError, ValueError) as exc:
         raise ValueError("`test_size`는 0과 1 사이의 실수여야 합니다.") from exc
     if not 0 < test_size < 1:
-        raise ValueError("`test_size`는 0과 1 사이의 값이어야 합니다.")
+        raise ValueError("`test_size`는 0과 1 사이 값이어야 합니다.")
 
     try:
         int(settings["random_state"])
     except (TypeError, ValueError) as exc:
         raise ValueError("`random_state`는 정수여야 합니다.") from exc
 
-    if task_type != "auto" and not settings.get("target"):
-        raise ValueError("`task_type`을 regression/classification으로 지정하려면 `target`도 필요합니다.")
+    eval_method = str(settings["eval_method"])
+    if eval_method not in ALLOWED_EVAL_METHODS:
+        raise ValueError(f"`eval_method`는 {sorted(ALLOWED_EVAL_METHODS)} 중 하나여야 합니다.")
 
+    try:
+        cv_folds = int(settings["cv_folds"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("`cv_folds`는 2 이상의 정수여야 합니다.") from exc
+    if cv_folds < 2:
+        raise ValueError("`cv_folds`는 2 이상이어야 합니다.")
+
+    if task_type != "auto" and not settings.get("target"):
+        raise ValueError("`task_type`을 regression/classification으로 지정하면 `target`도 필요합니다.")

@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import joblib
+import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 
 from app.evaluate import add_classification_auc, evaluate_classification, evaluate_regression
 from app.model_selection import detect_problem_type, get_baseline_models
 from app.preprocessing import PreprocessingSummary, build_preprocessing_pipeline
+from app.warnings_log import WarningRecord
 
 
 @dataclass
@@ -18,9 +22,13 @@ class ModelResult:
     problem_type: str
     train_rows: int
     validation_rows: int
+    eval_method: str
+    cv_folds: int
     metrics: pd.DataFrame
     best_model_name: str
     preprocessing_summary: PreprocessingSummary
+    warnings: list[WarningRecord]
+    best_model_pipeline: Pipeline
 
 
 def train_and_compare_models(
@@ -29,17 +37,18 @@ def train_and_compare_models(
     test_size: float = 0.2,
     task_type: str = "auto",
     random_state: int = 42,
+    eval_method: str = "holdout",
+    cv_folds: int = 5,
 ) -> ModelResult:
+    warnings: list[WarningRecord] = []
+
     if target_column not in df.columns:
         available_columns = ", ".join(df.columns.astype(str).tolist())
-        raise ValueError(
-            f"타깃 컬럼을 찾을 수 없습니다: {target_column}. "
-            f"사용 가능한 컬럼: {available_columns}"
-        )
+        raise ValueError(f"타깃 컬럼을 찾을 수 없습니다: {target_column}. 사용 가능한 컬럼: {available_columns}")
 
     model_df = df.dropna(subset=[target_column]).copy()
     if model_df.empty:
-        raise ValueError("타깃 결측치를 제거한 뒤 사용할 데이터가 없습니다.")
+        raise ValueError("타깃 결측치를 제거하고 나면 사용할 수 있는 데이터가 없습니다.")
 
     target = model_df[target_column]
     preprocessor, features, preprocessing_summary = build_preprocessing_pipeline(model_df, target_column)
@@ -48,21 +57,86 @@ def train_and_compare_models(
         raise ValueError("타깃 컬럼을 제외하고 남은 입력 피처가 없습니다.")
 
     if not preprocessing_summary.numeric_columns and not preprocessing_summary.categorical_columns:
-        raise ValueError("전처리 후 사용할 수치형/범주형 입력 피처가 없습니다.")
+        raise ValueError("전처리에 사용할 수치형 또는 범주형 입력 피처가 없습니다.")
 
-    if task_type == "auto":
-        problem_type = detect_problem_type(target)
-    else:
-        problem_type = task_type
+    problem_type = detect_problem_type(target) if task_type == "auto" else task_type
+
     if problem_type == "classification" and target.nunique() < 2:
         raise ValueError("분류 문제는 최소 2개 이상의 클래스가 필요합니다.")
 
     if preprocessing_summary.datetime_columns:
-        columns_text = ", ".join(preprocessing_summary.datetime_columns)
-        print(
-            f"경고: 날짜형 컬럼({columns_text})이 감지되었습니다. 자동 feature engineering은 하지 않고 학습에서 제외합니다."
+        warnings.append(
+            WarningRecord(
+                code="datetime_columns_excluded",
+                level="warning",
+                message="날짜형 컬럼이 감지되어 자동 feature engineering 없이 학습 대상에서 제외되었습니다.",
+                details={"columns": preprocessing_summary.datetime_columns},
+            )
         )
 
+    models = get_baseline_models(problem_type)
+    if eval_method == "cv":
+        metrics_df, effective_cv_folds, model_warnings = _evaluate_with_cv(
+            features=features,
+            target=target,
+            preprocessor=preprocessor,
+            models=models,
+            problem_type=problem_type,
+            cv_folds=cv_folds,
+            random_state=random_state,
+        )
+        warnings.extend(model_warnings)
+        train_rows = 0
+        validation_rows = 0
+    else:
+        metrics_df, train_rows, validation_rows, model_warnings = _evaluate_with_holdout(
+            features=features,
+            target=target,
+            preprocessor=preprocessor,
+            models=models,
+            problem_type=problem_type,
+            test_size=test_size,
+            random_state=random_state,
+        )
+        warnings.extend(model_warnings)
+        effective_cv_folds = cv_folds
+
+    if metrics_df.empty:
+        raise ValueError("모든 baseline 모델 학습에 실패했습니다. warnings_summary를 확인하세요.")
+
+    best_model_name = _select_best_model(metrics_df, problem_type)
+    best_model_pipeline = _fit_best_model_pipeline(
+        features=features,
+        target=target,
+        preprocessor=preprocessor,
+        models=models,
+        best_model_name=best_model_name,
+    )
+
+    return ModelResult(
+        target=target_column,
+        problem_type=problem_type,
+        train_rows=train_rows,
+        validation_rows=validation_rows,
+        eval_method=eval_method,
+        cv_folds=effective_cv_folds,
+        metrics=metrics_df,
+        best_model_name=best_model_name,
+        preprocessing_summary=preprocessing_summary,
+        warnings=warnings,
+        best_model_pipeline=best_model_pipeline,
+    )
+
+
+def _evaluate_with_holdout(
+    features: pd.DataFrame,
+    target: pd.Series,
+    preprocessor: object,
+    models: dict[str, object],
+    problem_type: str,
+    test_size: float,
+    random_state: int,
+) -> tuple[pd.DataFrame, int, int, list[WarningRecord]]:
     stratify = None
     if problem_type == "classification":
         min_class_count = int(target.value_counts().min())
@@ -77,45 +151,130 @@ def train_and_compare_models(
         stratify=stratify,
     )
 
-    models = get_baseline_models(problem_type)
-
     rows: list[dict[str, object]] = []
+    warnings: list[WarningRecord] = []
     for model_name, estimator in models.items():
-        pipeline = Pipeline(
-            steps=[
-                ("preprocessor", preprocessor),
-                ("model", estimator),
-            ]
-        )
-        pipeline.fit(X_train, y_train)
-        predictions = pipeline.predict(X_valid)
+        try:
+            pipeline = Pipeline(
+                steps=[
+                    ("preprocessor", preprocessor),
+                    ("model", estimator),
+                ]
+            )
+            pipeline.fit(X_train, y_train)
+            predictions = pipeline.predict(X_valid)
 
-        if problem_type == "regression":
-            metrics = evaluate_regression(y_valid, predictions)
-        else:
-            metrics = evaluate_classification(y_valid, predictions)
-            metrics = add_classification_auc(metrics, pipeline, X_valid, y_valid)
+            if problem_type == "regression":
+                metrics = evaluate_regression(y_valid, predictions)
+            else:
+                metrics = evaluate_classification(y_valid, predictions)
+                metrics = add_classification_auc(metrics, pipeline, X_valid, y_valid)
 
+            row = {"model": model_name, "problem_type": problem_type, **metrics}
+            for metric_name in metrics.keys():
+                row[f"{metric_name}_std"] = 0.0
+            rows.append(row)
+        except Exception as exc:
+            warnings.append(
+                WarningRecord(
+                    code="model_training_exception",
+                    level="warning",
+                    message=f"{model_name} 학습 중 예외가 발생하여 해당 모델 결과를 제외했습니다.",
+                    details={"model": model_name, "error": str(exc), "eval_method": "holdout"},
+                )
+            )
+
+    return pd.DataFrame(rows), len(X_train), len(X_valid), warnings
+
+
+def _evaluate_with_cv(
+    features: pd.DataFrame,
+    target: pd.Series,
+    preprocessor: object,
+    models: dict[str, object],
+    problem_type: str,
+    cv_folds: int,
+    random_state: int,
+) -> tuple[pd.DataFrame, int, list[WarningRecord]]:
+    splitter, effective_folds = _build_cv_splitter(problem_type, target, cv_folds, random_state)
+    rows: list[dict[str, object]] = []
+    warnings: list[WarningRecord] = []
+
+    for model_name, estimator in models.items():
+        fold_metrics: list[dict[str, float | None]] = []
+        try:
+            for train_idx, valid_idx in splitter.split(features, target if problem_type == "classification" else None):
+                X_train = features.iloc[train_idx]
+                X_valid = features.iloc[valid_idx]
+                y_train = target.iloc[train_idx]
+                y_valid = target.iloc[valid_idx]
+
+                pipeline = Pipeline(
+                    steps=[
+                        ("preprocessor", preprocessor),
+                        ("model", estimator),
+                    ]
+                )
+                pipeline.fit(X_train, y_train)
+                predictions = pipeline.predict(X_valid)
+
+                if problem_type == "regression":
+                    metrics = evaluate_regression(y_valid, predictions)
+                else:
+                    metrics = evaluate_classification(y_valid, predictions)
+                    metrics = add_classification_auc(metrics, pipeline, X_valid, y_valid)
+                fold_metrics.append(metrics)
+        except Exception as exc:
+            warnings.append(
+                WarningRecord(
+                    code="model_training_exception",
+                    level="warning",
+                    message=f"{model_name} 학습 중 예외가 발생하여 해당 모델 결과를 제외했습니다.",
+                    details={"model": model_name, "error": str(exc), "eval_method": "cv"},
+                )
+            )
+            continue
+
+        aggregated = _aggregate_fold_metrics(fold_metrics)
         rows.append(
             {
                 "model": model_name,
                 "problem_type": problem_type,
-                **metrics,
+                "evaluated_folds": effective_folds,
+                **aggregated,
             }
         )
 
-    metrics_df = pd.DataFrame(rows)
-    best_model_name = _select_best_model(metrics_df, problem_type)
+    return pd.DataFrame(rows), effective_folds, warnings
 
-    return ModelResult(
-        target=target_column,
-        problem_type=problem_type,
-        train_rows=len(X_train),
-        validation_rows=len(X_valid),
-        metrics=metrics_df,
-        best_model_name=best_model_name,
-        preprocessing_summary=preprocessing_summary,
-    )
+
+def _build_cv_splitter(problem_type: str, target: pd.Series, cv_folds: int, random_state: int):
+    if problem_type == "classification":
+        min_class_count = int(target.value_counts().min())
+        effective_folds = min(cv_folds, min_class_count)
+        if effective_folds < 2:
+            raise ValueError("분류 CV는 각 클래스에 최소 2개 이상의 샘플이 필요합니다.")
+        return StratifiedKFold(n_splits=effective_folds, shuffle=True, random_state=random_state), effective_folds
+
+    effective_folds = min(cv_folds, len(target))
+    if effective_folds < 2:
+        raise ValueError("회귀 CV는 최소 2개 이상의 샘플이 필요합니다.")
+    return KFold(n_splits=effective_folds, shuffle=True, random_state=random_state), effective_folds
+
+
+def _aggregate_fold_metrics(fold_metrics: list[dict[str, float | None]]) -> dict[str, object]:
+    metric_names = sorted({key for metrics in fold_metrics for key in metrics.keys()})
+    aggregated: dict[str, object] = {}
+    for name in metric_names:
+        values = [metrics[name] for metrics in fold_metrics if metrics.get(name) is not None and pd.notna(metrics.get(name))]
+        if not values:
+            aggregated[name] = np.nan
+            aggregated[f"{name}_std"] = np.nan
+            continue
+        numeric_values = [float(value) for value in values]
+        aggregated[name] = float(np.mean(numeric_values))
+        aggregated[f"{name}_std"] = float(np.std(numeric_values, ddof=0))
+    return aggregated
 
 
 def _select_best_model(metrics_df: pd.DataFrame, problem_type: str) -> str:
@@ -129,12 +288,51 @@ def _select_best_model(metrics_df: pd.DataFrame, problem_type: str) -> str:
     return str(ordered.iloc[0]["model"])
 
 
-def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Path, Path]:
+def _fit_best_model_pipeline(
+    features: pd.DataFrame,
+    target: pd.Series,
+    preprocessor: object,
+    models: dict[str, object],
+    best_model_name: str,
+) -> Pipeline:
+    pipeline = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("model", models[best_model_name]),
+        ]
+    )
+    pipeline.fit(features, target)
+    return pipeline
+
+
+def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Path, Path, Path, Path]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     comparison_path = output_path / "model_comparison.csv"
     result.metrics.to_csv(comparison_path, index=False)
+
+    model_path = output_path / "best_model.joblib"
+    joblib.dump(result.best_model_pipeline, model_path)
+
+    best_row = result.metrics.loc[result.metrics["model"] == result.best_model_name].iloc[0].to_dict()
+    metadata = {
+        "target": result.target,
+        "problem_type": result.problem_type,
+        "eval_method": result.eval_method,
+        "cv_folds": result.cv_folds,
+        "best_model_name": result.best_model_name,
+        "artifact_path": str(model_path),
+        "numeric_columns": result.preprocessing_summary.numeric_columns,
+        "categorical_columns": result.preprocessing_summary.categorical_columns,
+        "datetime_columns": result.preprocessing_summary.datetime_columns,
+        "best_metrics": {
+            key: (float(value) if pd.notna(value) and isinstance(value, (int, float, np.floating)) else value)
+            for key, value in best_row.items()
+        },
+    }
+    metadata_path = output_path / "model_metadata.json"
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8-sig")
 
     problem_type_label = "회귀" if result.problem_type == "regression" else "분류"
     summary_lines = [
@@ -142,9 +340,14 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         "",
         f"- 타깃 컬럼: {result.target}",
         f"- 문제 유형: {problem_type_label}",
-        f"- 학습 데이터 행 수: {result.train_rows}",
-        f"- 검증 데이터 행 수: {result.validation_rows}",
+        f"- 평가 방식: {result.eval_method}",
+        f"- CV fold 수: {result.cv_folds if result.eval_method == 'cv' else '해당 없음'}",
+        f"- 학습 데이터 수: {result.train_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
+        f"- 검증 데이터 수: {result.validation_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
         f"- 최고 성능 모델: {result.best_model_name}",
+        "- best model 저장 여부: 저장됨",
+        f"- 모델 artifact 경로: {model_path.name}",
+        f"- 모델 메타정보 경로: {metadata_path.name}",
         "",
         "## 모델 비교",
         "",
@@ -160,4 +363,4 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
 
     summary_path = output_path / "model_summary.md"
     summary_path.write_text("\n".join(summary_lines), encoding="utf-8-sig")
-    return comparison_path, summary_path
+    return comparison_path, summary_path, model_path, metadata_path

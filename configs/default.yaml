@@ -5,3 +5,5 @@ report_format: md
 task_type: auto
 random_state: 42
 test_size: 0.2
+eval_method: holdout
+cv_folds: 5

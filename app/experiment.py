@@ -69,8 +69,12 @@ def append_experiment_log(
     input_file: str | Path,
     target: str | None,
     task_type: str,
+    eval_method: str,
+    cv_folds: int,
     model_result: ModelResult | None,
     output_path: str | Path,
+    success: bool,
+    warning_count: int,
 ) -> Path:
     base_path = Path(base_output_dir)
     base_path.mkdir(parents=True, exist_ok=True)
@@ -82,6 +86,10 @@ def append_experiment_log(
         "input_file": str(input_file),
         "target": target or "",
         "task_type": model_result.problem_type if model_result is not None else task_type,
+        "eval_method": eval_method,
+        "cv_folds": cv_folds,
+        "success": success,
+        "warning_count": warning_count,
         "best_model": model_result.best_model_name if model_result is not None else "",
         "main_metric": _get_main_metric(model_result),
         "output_path": str(output_path),

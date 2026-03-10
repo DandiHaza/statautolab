@@ -27,7 +27,7 @@ def build_preprocessing_pipeline(
         raise ValueError(f"타깃 컬럼을 찾을 수 없습니다: {target_column}")
 
     features = df.drop(columns=[target_column]).copy()
-    datetime_columns = []
+    datetime_columns: list[str] = []
     for column in features.columns:
         series = features[column]
         if pd.api.types.is_datetime64_any_dtype(series):

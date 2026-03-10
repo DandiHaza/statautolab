@@ -10,6 +10,7 @@ class ConfigTests(unittest.TestCase):
         config = load_config_file("configs/default.yaml")
         self.assertEqual(config["input_path"], "data/sample.csv")
         self.assertEqual(config["report_format"], "md")
+        self.assertEqual(config["eval_method"], "holdout")
 
     def test_cli_values_override_config(self) -> None:
         config = {
@@ -20,6 +21,8 @@ class ConfigTests(unittest.TestCase):
             "task_type": "auto",
             "random_state": 42,
             "test_size": 0.2,
+            "eval_method": "holdout",
+            "cv_folds": 5,
         }
         cli = {
             "input_path": None,
@@ -29,6 +32,8 @@ class ConfigTests(unittest.TestCase):
             "task_type": None,
             "random_state": 7,
             "test_size": None,
+            "eval_method": "cv",
+            "cv_folds": 3,
         }
 
         resolved = resolve_settings(cli, config)
@@ -36,3 +41,5 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(resolved["target"], "other_target")
         self.assertEqual(resolved["report_format"], "html")
         self.assertEqual(resolved["random_state"], 7)
+        self.assertEqual(resolved["eval_method"], "cv")
+        self.assertEqual(resolved["cv_folds"], 3)

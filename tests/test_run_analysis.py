@@ -26,3 +26,8 @@ class RunAnalysisTests(unittest.TestCase):
     def test_parse_args_accepts_config_option(self) -> None:
         args = parse_args(["--config", "configs/default.yaml"])
         self.assertEqual(args.config, "configs/default.yaml")
+
+    def test_parse_args_accepts_eval_options(self) -> None:
+        args = parse_args(["--input", "data/sample.csv", "--eval-method", "cv", "--cv-folds", "4"])
+        self.assertEqual(args.eval_method, "cv")
+        self.assertEqual(args.cv_folds, 4)

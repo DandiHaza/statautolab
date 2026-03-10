@@ -9,7 +9,6 @@ SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
 
 def load_dataset(file_path: str | Path) -> pd.DataFrame:
-    """Load a CSV or Excel file into a DataFrame."""
     path = Path(file_path)
     if not path.exists():
         sample_hint = (
@@ -20,7 +19,7 @@ def load_dataset(file_path: str | Path) -> pd.DataFrame:
         raise FileNotFoundError(
             f"입력 파일을 찾을 수 없습니다: {path.resolve()}. "
             f"{sample_hint}"
-            "예: `python run_analysis.py --input your_data.csv`"
+            "예시: `python run_analysis.py --input your_data.csv`"
         )
 
     suffix = path.suffix.lower()
@@ -45,5 +44,5 @@ def load_dataset(file_path: str | Path) -> pd.DataFrame:
     except Exception as exc:
         raise ValueError(
             f"Excel 파일을 읽는 중 오류가 발생했습니다: {path.resolve()}. "
-            "파일이 열려 있거나 손상되었는지 확인하세요."
+            "파일이 열려 있거나 손상되지 않았는지 확인하세요."
         ) from exc

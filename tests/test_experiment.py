@@ -33,13 +33,19 @@ class ExperimentTests(unittest.TestCase):
             input_file="data/sample.csv",
             target="buy",
             task_type="auto",
+            eval_method="holdout",
+            cv_folds=5,
             model_result=None,
             output_path=self.tmpdir / "20260310" / "120000",
+            success=True,
+            warning_count=2,
         )
         self.assertTrue(log_path.exists())
         df = pd.read_csv(log_path)
         self.assertEqual(len(df), 1)
         self.assertEqual(df.iloc[0]["run_id"], "20260310_120000")
+        self.assertEqual(bool(df.iloc[0]["success"]), True)
+        self.assertEqual(int(df.iloc[0]["warning_count"]), 2)
 
     def test_save_data_summary_creates_json(self) -> None:
         profile = profile_dataset(pd.DataFrame({"value": [1, 2, 3]}))

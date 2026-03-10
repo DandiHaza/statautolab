@@ -9,7 +9,7 @@ from app.io import load_dataset
 from app.model_selection import detect_problem_type
 from app.preprocessing import build_preprocessing_pipeline
 from app.profiling import profile_dataset
-from app.train import train_and_compare_models
+from app.train import save_model_results, train_and_compare_models
 
 
 @pytest.fixture
@@ -91,3 +91,25 @@ def test_train_and_compare_models_returns_comparison_result(classification_df: p
     assert result.best_model_name in {"LogisticRegression", "RandomForestClassifier"}
     assert set(result.metrics["model"]) == {"LogisticRegression", "RandomForestClassifier"}
     assert {"accuracy", "f1"}.issubset(result.metrics.columns)
+
+
+def test_train_and_compare_models_supports_cv(classification_df: pd.DataFrame) -> None:
+    result = train_and_compare_models(classification_df, "target", eval_method="cv", cv_folds=3)
+
+    assert result.eval_method == "cv"
+    assert result.cv_folds == 3
+    assert {"accuracy", "accuracy_std", "f1", "f1_std"}.issubset(result.metrics.columns)
+
+
+def test_save_model_results_creates_model_artifacts(
+    classification_df: pd.DataFrame,
+    local_tmp_path: Path,
+) -> None:
+    result = train_and_compare_models(classification_df, "target")
+
+    comparison_path, summary_path, model_path, metadata_path = save_model_results(result, local_tmp_path)
+
+    assert comparison_path.exists()
+    assert summary_path.exists()
+    assert model_path.exists()
+    assert metadata_path.exists()

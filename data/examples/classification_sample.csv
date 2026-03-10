@@ -1,0 +1,7 @@
+name,age,score,city,buy
+Alice,30,88,Seoul,yes
+Bob,,91,Busan,no
+Charlie,25,85,Seoul,yes
+Dana,28,,Incheon,no
+Evan,35,77,Daegu,yes
+Fiona,31,82,Busan,no

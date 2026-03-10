@@ -8,6 +8,7 @@ import pandas as pd
 from app.preprocessing import PreprocessingSummary
 from app.profiling import ProfileResult
 from app.train import ModelResult
+from app.warnings_log import WarningRecord
 
 
 def _table_to_markdown(df: pd.DataFrame, index: bool = False) -> str:
@@ -91,9 +92,9 @@ def _build_model_focus(model_result: ModelResult | None) -> pd.DataFrame:
 
     metrics = model_result.metrics.copy()
     if model_result.problem_type == "regression":
-        preferred_columns = ["model", "rmse", "mae", "r2"]
+        preferred_columns = ["model", "rmse", "rmse_std", "mae", "mae_std", "r2", "r2_std"]
     else:
-        preferred_columns = ["model", "accuracy", "f1", "roc_auc"]
+        preferred_columns = ["model", "accuracy", "accuracy_std", "f1", "f1_std", "roc_auc", "roc_auc_std"]
     existing_columns = [column for column in preferred_columns if column in metrics.columns]
     return metrics[existing_columns]
 
@@ -115,7 +116,7 @@ def _get_target_correlation_insight(model_result: ModelResult | None, profile: P
 
     feature = str(target_corr.index[0])
     value = float(target_corr.iloc[0])
-    return f"`{model_result.target}`와 가장 관련성이 높아 보이는 변수는 `{feature}`이며, 상관계수는 {value:.3f}입니다."
+    return f"`{model_result.target}`과 가장 관련성이 높아 보이는 변수는 `{feature}`이며, 상관계수는 {value:.3f}입니다."
 
 
 def _build_auto_insights(
@@ -133,15 +134,15 @@ def _build_auto_insights(
             f"결측치가 가장 많은 컬럼은 `{row['column']}`이며 결측 비율은 약 {float(row['missing_ratio_pct']):.1f}%입니다. 추가 검토가 필요할 가능성이 있습니다."
         )
     else:
-        insights.append("결측치가 보고되지 않아 기본 품질은 비교적 안정적으로 보입니다.")
+        insights.append("결측치가 보고되지 않아 기본 데이터 점검은 비교적 안정적으로 보입니다.")
 
     if not top_outliers.empty:
         row = top_outliers.iloc[0]
         insights.append(
-            f"IQR 기준 이상치가 가장 많은 컬럼은 `{row['column']}`이며 비율은 약 {float(row['outlier_ratio_pct']):.1f}%입니다. 값 분포를 추가 확인할 필요가 있습니다."
+            f"IQR 기준 이상치가 가장 많은 컬럼은 `{row['column']}`이며 비율은 약 {float(row['outlier_ratio_pct']):.1f}%입니다."
         )
     else:
-        insights.append("IQR 기준으로 뚜렷한 이상치가 보고되지 않았습니다.")
+        insights.append("IQR 기준으로 뚜렷한 이상치가 많다고 보기는 어렵습니다.")
 
     if not top_correlations.empty:
         row = top_correlations.iloc[0]
@@ -156,7 +157,7 @@ def _build_auto_insights(
             f"`{row['feature_a']}`와 `{row['feature_b']}`는 상관계수 {float(row['correlation']):.3f}로 관찰되며, {descriptor}이 있습니다."
         )
     else:
-        insights.append("수치형 변수 수가 적어 상관분석에서 뚜렷한 변수쌍을 찾기 어려웠습니다.")
+        insights.append("수치형 변수가 적어 상관분석에서 뚜렷한 변수쌍을 제시하기 어렵습니다.")
 
     target_insight = _get_target_correlation_insight(model_result, profile)
     if target_insight is not None:
@@ -166,17 +167,17 @@ def _build_auto_insights(
         best_row = model_result.metrics.loc[model_result.metrics["model"] == model_result.best_model_name].iloc[0]
         if model_result.problem_type == "regression":
             insights.append(
-                f"현재 baseline 기준으로 가장 성능이 좋은 모델은 `{model_result.best_model_name}`이며, RMSE는 {float(best_row['rmse']):.3f}, MAE는 {float(best_row['mae']):.3f}입니다."
+                f"현재 baseline 기준 최고 성능 모델은 `{model_result.best_model_name}`이며 RMSE는 {float(best_row['rmse']):.3f}, MAE는 {float(best_row['mae']):.3f}입니다."
             )
         else:
             roc_auc_text = ""
             if "roc_auc" in best_row.index and pd.notna(best_row["roc_auc"]):
                 roc_auc_text = f", ROC-AUC는 {float(best_row['roc_auc']):.3f}"
             insights.append(
-                f"현재 baseline 기준으로 가장 성능이 좋은 모델은 `{model_result.best_model_name}`이며, Accuracy는 {float(best_row['accuracy']):.3f}, F1은 {float(best_row['f1']):.3f}{roc_auc_text}입니다."
+                f"현재 baseline 기준 최고 성능 모델은 `{model_result.best_model_name}`이며 Accuracy는 {float(best_row['accuracy']):.3f}, F1은 {float(best_row['f1']):.3f}{roc_auc_text}입니다."
             )
     else:
-        insights.append("모델 자동화가 실행되지 않아 모델 성능에 대한 해석은 포함되지 않았습니다.")
+        insights.append("모델 자동화가 실행되지 않아 모델 성능 해석은 포함되지 않았습니다.")
 
     return insights
 
@@ -189,6 +190,8 @@ def build_markdown_report(
     correlation_path: Path | None,
     preprocessing_summary: PreprocessingSummary | None = None,
     model_result: ModelResult | None = None,
+    warnings: list[WarningRecord] | None = None,
+    model_artifacts: dict[str, Path] | None = None,
 ) -> str:
     dtype_overview = _build_dtype_overview(profile)
     top_missing = _build_top_missing(profile)
@@ -197,11 +200,13 @@ def build_markdown_report(
     top_correlations = _build_top_correlations(profile)
     model_focus = _build_model_focus(model_result)
     auto_insights = _build_auto_insights(profile, top_missing, top_outliers, top_correlations, model_result)
+    warning_records = warnings or []
+    artifact_paths = model_artifacts or {}
 
     lines: list[str] = []
     lines.append(f"# 데이터 분석 리포트: {source_name}")
     lines.append("")
-    lines.append("이 리포트는 데이터의 구조, 결측치, 수치형 변수 특성, 상관관계, 그리고 가능한 경우 baseline 모델 성능을 중심으로 요약합니다.")
+    lines.append("이 리포트는 데이터 구조, 결측치, 수치형 분포, 상관관계, 이상치, 전처리와 모델 성능을 요약합니다.")
     lines.append("")
 
     lines.append("## 핵심 인사이트")
@@ -210,12 +215,21 @@ def build_markdown_report(
         lines.append(f"- {insight}")
     lines.append("")
 
+    lines.append("## 주의사항 및 경고")
+    lines.append("")
+    if not warning_records:
+        lines.append("기록된 주요 경고가 없습니다.")
+        lines.append("")
+    else:
+        lines.append(f"총 {len(warning_records)}건의 주의사항이 기록되었습니다.")
+        lines.append("")
+        for record in warning_records:
+            lines.append(f"- {record.message}")
+        lines.append("")
+
     lines.append("## 1. 데이터 개요")
     lines.append("")
-    lines.append(
-        f"데이터는 총 **{profile.row_count}개 행**, **{profile.column_count}개 열**로 구성되어 있습니다. "
-        "아래 표는 컬럼 타입 분포를 요약한 것입니다."
-    )
+    lines.append(f"데이터는 총 **{profile.row_count}행**, **{profile.column_count}열**로 구성되어 있습니다.")
     lines.append("")
     lines.append(_table_to_markdown(dtype_overview))
     lines.append("")
@@ -226,7 +240,7 @@ def build_markdown_report(
         lines.append("결측치가 있는 컬럼이 확인되지 않았습니다.")
         lines.append("")
     else:
-        lines.append("결측치가 많은 상위 컬럼은 아래와 같습니다. 비율이 높은 컬럼은 수집 과정이나 입력 규칙을 추가 점검하는 것이 좋습니다.")
+        lines.append("결측치가 많은 상위 컬럼은 아래와 같습니다.")
         lines.append("")
         lines.append(_table_to_markdown(top_missing))
         lines.append("")
@@ -239,16 +253,16 @@ def build_markdown_report(
     else:
         lines.append("수치형 컬럼의 기본 분포를 빠르게 확인할 수 있도록 핵심 통계량만 정리했습니다.")
         lines.append("")
-    lines.append(_table_to_markdown(numeric_focus))
-    lines.append("")
+        lines.append(_table_to_markdown(numeric_focus))
+        lines.append("")
 
     lines.append("## 4. 이상치 요약")
     lines.append("")
     if top_outliers.empty:
-        lines.append("IQR 기준으로 보고할 이상치가 많은 수치형 컬럼은 확인되지 않았습니다.")
+        lines.append("IQR 기준으로 이상치가 많은 수치형 컬럼은 확인되지 않았습니다.")
         lines.append("")
     else:
-        lines.append("이상치 개수와 비율이 높은 상위 수치형 컬럼은 아래와 같습니다. 현재 단계에서는 탐지만 수행하며 자동 삭제는 하지 않았습니다.")
+        lines.append("이상치 비율이 높은 상위 컬럼은 아래와 같습니다.")
         lines.append("")
         lines.append(_table_to_markdown(top_outliers))
         lines.append("")
@@ -256,10 +270,10 @@ def build_markdown_report(
     lines.append("## 5. 상관분석 요약")
     lines.append("")
     if top_correlations.empty:
-        lines.append("상관분석을 수행하기에 충분한 수치형 컬럼 쌍이 없었습니다.")
+        lines.append("상관분석을 수행하기에 충분한 수치형 컬럼이 없었습니다.")
         lines.append("")
     else:
-        lines.append("절대 상관계수가 높은 변수쌍 상위 항목입니다. 이는 선형 관계의 신호일 수 있지만 인과를 의미하지는 않습니다.")
+        lines.append("상관이 높은 변수쌍 상위 항목은 아래와 같습니다.")
         lines.append("")
         lines.append(_table_to_markdown(top_correlations.drop(columns=["abs_correlation"])))
         lines.append("")
@@ -270,7 +284,7 @@ def build_markdown_report(
     lines.append("## 6. 전처리 요약")
     lines.append("")
     if preprocessing_summary is None:
-        lines.append("`--target`이 지정되지 않아 모델 학습용 전처리 파이프라인은 실행되지 않았습니다.")
+        lines.append("`--target`이 지정되지 않아 모델 학습용 전처리는 수행되지 않았습니다.")
         lines.append("")
     else:
         lines.append("모델 학습 전 전처리는 아래 기준으로 적용되었습니다.")
@@ -289,7 +303,7 @@ def build_markdown_report(
         lines.append("- 범주형 결측치: 최빈값 대체")
         lines.append("- 범주형 인코딩: OneHotEncoder")
         if preprocessing_summary.datetime_columns:
-            lines.append("- 날짜형 컬럼은 자동 feature engineering 없이 제외되었습니다.")
+            lines.append("- 날짜형 컬럼은 자동 feature engineering 없이 제외했습니다.")
         lines.append("")
 
     lines.append("## 7. 모델 결과 요약")
@@ -300,11 +314,18 @@ def build_markdown_report(
     else:
         problem_type_label = "회귀" if model_result.problem_type == "regression" else "분류"
         lines.append(
-            f"타깃 컬럼은 `{model_result.target}`이며 문제 유형은 **{problem_type_label}**로 판별되었습니다. "
-            f"학습 데이터는 {model_result.train_rows}행, 검증 데이터는 {model_result.validation_rows}행입니다."
+            f"타깃 컬럼은 `{model_result.target}`이며 문제 유형은 **{problem_type_label}**로 처리했습니다. 평가 방식은 **{model_result.eval_method}**입니다."
         )
         lines.append("")
-        lines.append(f"현재 baseline 비교에서 가장 좋은 모델은 **{model_result.best_model_name}** 입니다.")
+        if model_result.eval_method == "cv":
+            lines.append(f"교차검증은 **{model_result.cv_folds} folds**로 수행했습니다.")
+        else:
+            lines.append(f"학습 데이터는 {model_result.train_rows}건, 검증 데이터는 {model_result.validation_rows}건입니다.")
+        lines.append("")
+        lines.append(f"현재 baseline 비교에서 가장 좋은 모델은 **{model_result.best_model_name}**입니다.")
+        if artifact_paths:
+            lines.append(f"best model 저장 여부는 **저장됨**이며 artifact는 `{artifact_paths['model'].name}`로 남겼습니다.")
+            lines.append(f"메타정보는 `{artifact_paths['metadata'].name}`에 저장했습니다.")
         lines.append("")
         lines.append(_table_to_markdown(model_focus))
         lines.append("")

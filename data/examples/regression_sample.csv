@@ -1,0 +1,9 @@
+customer_id,age,income,city,visits,spending_score
+C001,24,3200,Seoul,5,62
+C002,29,4100,Busan,7,71
+C003,35,5300,Seoul,8,79
+C004,41,6100,Daegu,9,83
+C005,27,3800,Incheon,6,68
+C006,33,4700,Busan,7,74
+C007,38,5900,Seoul,10,86
+C008,31,4500,Daegu,6,72
