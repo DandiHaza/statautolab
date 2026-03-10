@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import matplotlib
 import pandas as pd
 import seaborn as sns
+
+# Force a non-GUI backend so chart generation works in headless CLI environments.
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
 def generate_histograms(df: pd.DataFrame, output_dir: str | Path) -> list[Path]:
@@ -30,6 +34,28 @@ def generate_histograms(df: pd.DataFrame, output_dir: str | Path) -> list[Path]:
     return saved_files
 
 
+def generate_boxplots(df: pd.DataFrame, output_dir: str | Path) -> list[Path]:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    numeric_columns = df.select_dtypes(include="number").columns.tolist()
+    saved_files: list[Path] = []
+
+    for column in numeric_columns:
+        fig, ax = plt.subplots(figsize=(8, 3.5))
+        sns.boxplot(x=df[column].dropna(), ax=ax)
+        ax.set_title(f"Boxplot: {column}")
+        ax.set_xlabel(column)
+        fig.tight_layout()
+
+        file_path = output_path / f"boxplot_{column}.png"
+        fig.savefig(file_path, dpi=150)
+        plt.close(fig)
+        saved_files.append(file_path)
+
+    return saved_files
+
+
 def generate_correlation_heatmap(correlation_df: pd.DataFrame, output_dir: str | Path) -> Path | None:
     if correlation_df.empty:
         return None
@@ -46,4 +72,3 @@ def generate_correlation_heatmap(correlation_df: pd.DataFrame, output_dir: str |
     fig.savefig(file_path, dpi=150)
     plt.close(fig)
     return file_path
-

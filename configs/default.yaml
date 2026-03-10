@@ -1,0 +1,7 @@
+input_path: data/sample.csv
+target: buy
+output_dir: outputs
+report_format: md
+task_type: auto
+random_state: 42
+test_size: 0.2

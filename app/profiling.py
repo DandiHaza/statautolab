@@ -15,6 +15,7 @@ class ProfileResult:
     categorical_summary: pd.DataFrame
     preview: pd.DataFrame
     correlation: pd.DataFrame
+    outliers: pd.DataFrame
 
 
 def _build_dtype_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -67,6 +68,52 @@ def _build_correlation(df: pd.DataFrame) -> pd.DataFrame:
     return numeric_df.corr(numeric_only=True)
 
 
+def _build_outlier_summary(df: pd.DataFrame) -> pd.DataFrame:
+    numeric_df = df.select_dtypes(include="number")
+    if numeric_df.empty:
+        return pd.DataFrame(columns=["column", "outlier_count", "outlier_ratio_pct", "lower_bound", "upper_bound"])
+
+    rows: list[dict[str, float | str]] = []
+    for column in numeric_df.columns:
+        series = numeric_df[column].dropna()
+        if series.empty:
+            rows.append(
+                {
+                    "column": column,
+                    "outlier_count": 0,
+                    "outlier_ratio_pct": 0.0,
+                    "lower_bound": float("nan"),
+                    "upper_bound": float("nan"),
+                }
+            )
+            continue
+
+        q1 = float(series.quantile(0.25))
+        q3 = float(series.quantile(0.75))
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        outlier_mask = (series < lower_bound) | (series > upper_bound)
+        outlier_count = int(outlier_mask.sum())
+        outlier_ratio_pct = float(outlier_count / len(series) * 100) if len(series) else 0.0
+
+        rows.append(
+            {
+                "column": column,
+                "outlier_count": outlier_count,
+                "outlier_ratio_pct": outlier_ratio_pct,
+                "lower_bound": lower_bound,
+                "upper_bound": upper_bound,
+            }
+        )
+
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["outlier_count", "outlier_ratio_pct", "column"], ascending=[False, False, True])
+        .reset_index(drop=True)
+    )
+
+
 def profile_dataset(df: pd.DataFrame) -> ProfileResult:
     return ProfileResult(
         row_count=len(df),
@@ -77,5 +124,5 @@ def profile_dataset(df: pd.DataFrame) -> ProfileResult:
         categorical_summary=_build_categorical_summary(df),
         preview=df.head(10),
         correlation=_build_correlation(df),
+        outliers=_build_outlier_summary(df),
     )
-
