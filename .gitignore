@@ -1,4 +1,9 @@
 .venv/
+.venv*/
+venv/
+env/
+ENV/
+.python-version
 .tmp/
 
 __pycache__/

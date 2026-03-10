@@ -9,7 +9,8 @@ StatAutoLab은 CSV/XLSX 데이터를 빠르게 탐색하고, 기본 EDA와 basel
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-.\.venv\Scripts\pip3.exe install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 python run_analysis.py --input data/examples/eda_sample.csv
 ```
 
@@ -159,5 +160,5 @@ CLI 인자와 config를 동시에 주면 CLI 값이 우선합니다.
 ## 테스트
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests
+python -m pytest tests
 ```
