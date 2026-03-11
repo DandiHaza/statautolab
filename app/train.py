@@ -34,6 +34,7 @@ class ModelResult:
 def train_and_compare_models(
     df: pd.DataFrame,
     target_column: str,
+    feature_columns: list[str] | None = None,
     test_size: float = 0.2,
     task_type: str = "auto",
     random_state: int = 42,
@@ -51,13 +52,17 @@ def train_and_compare_models(
         raise ValueError("타깃 결측치를 제거하고 나면 사용할 수 있는 데이터가 없습니다.")
 
     target = model_df[target_column]
-    preprocessor, features, preprocessing_summary = build_preprocessing_pipeline(model_df, target_column)
+    preprocessor, features, preprocessing_summary = build_preprocessing_pipeline(
+        model_df,
+        target_column,
+        feature_columns=feature_columns,
+    )
 
     if features.empty:
-        raise ValueError("타깃 컬럼을 제외하고 남은 입력 피처가 없습니다.")
+        raise ValueError("타깃 컬럼을 제외하고 사용할 입력 변수가 없습니다.")
 
     if not preprocessing_summary.numeric_columns and not preprocessing_summary.categorical_columns:
-        raise ValueError("전처리에 사용할 수치형 또는 범주형 입력 피처가 없습니다.")
+        raise ValueError("전처리에 사용할 수치형 또는 범주형 입력 변수가 없습니다.")
 
     problem_type = detect_problem_type(target) if task_type == "auto" else task_type
 
@@ -69,8 +74,18 @@ def train_and_compare_models(
             WarningRecord(
                 code="datetime_columns_excluded",
                 level="warning",
-                message="날짜형 컬럼이 감지되어 자동 feature engineering 없이 학습 대상에서 제외되었습니다.",
+                message="날짜형 컬럼은 감지되었지만 자동 feature engineering 없이 학습 대상에서 제외했습니다.",
                 details={"columns": preprocessing_summary.datetime_columns},
+            )
+        )
+
+    if preprocessing_summary.identifier_columns:
+        warnings.append(
+            WarningRecord(
+                code="identifier_columns_excluded",
+                level="warning",
+                message="식별자 성격의 컬럼은 기본적으로 모델 입력에서 제외했습니다.",
+                details={"columns": preprocessing_summary.identifier_columns},
             )
         )
 
@@ -102,7 +117,7 @@ def train_and_compare_models(
         effective_cv_folds = cv_folds
 
     if metrics_df.empty:
-        raise ValueError("모든 baseline 모델 학습에 실패했습니다. warnings_summary를 확인하세요.")
+        raise ValueError("모든 baseline 모델 학습이 실패했습니다. warnings_summary를 확인해 주세요.")
 
     best_model_name = _select_best_model(metrics_df, problem_type)
     best_model_pipeline = _fit_best_model_pipeline(
@@ -179,7 +194,7 @@ def _evaluate_with_holdout(
                 WarningRecord(
                     code="model_training_exception",
                     level="warning",
-                    message=f"{model_name} 학습 중 예외가 발생하여 해당 모델 결과를 제외했습니다.",
+                    message=f"{model_name} 학습 중 예외가 발생해 해당 모델 결과를 제외했습니다.",
                     details={"model": model_name, "error": str(exc), "eval_method": "holdout"},
                 )
             )
@@ -203,7 +218,8 @@ def _evaluate_with_cv(
     for model_name, estimator in models.items():
         fold_metrics: list[dict[str, float | None]] = []
         try:
-            for train_idx, valid_idx in splitter.split(features, target if problem_type == "classification" else None):
+            split_target = target if problem_type == "classification" else None
+            for train_idx, valid_idx in splitter.split(features, split_target):
                 X_train = features.iloc[train_idx]
                 X_valid = features.iloc[valid_idx]
                 y_train = target.iloc[train_idx]
@@ -229,7 +245,7 @@ def _evaluate_with_cv(
                 WarningRecord(
                     code="model_training_exception",
                     level="warning",
-                    message=f"{model_name} 학습 중 예외가 발생하여 해당 모델 결과를 제외했습니다.",
+                    message=f"{model_name} 학습 중 예외가 발생해 해당 모델 결과를 제외했습니다.",
                     details={"model": model_name, "error": str(exc), "eval_method": "cv"},
                 )
             )
@@ -323,9 +339,11 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         "cv_folds": result.cv_folds,
         "best_model_name": result.best_model_name,
         "artifact_path": str(model_path),
+        "selected_feature_columns": result.preprocessing_summary.selected_feature_columns,
         "numeric_columns": result.preprocessing_summary.numeric_columns,
         "categorical_columns": result.preprocessing_summary.categorical_columns,
         "datetime_columns": result.preprocessing_summary.datetime_columns,
+        "identifier_columns": result.preprocessing_summary.identifier_columns,
         "best_metrics": {
             key: (float(value) if pd.notna(value) and isinstance(value, (int, float, np.floating)) else value)
             for key, value in best_row.items()
@@ -345,9 +363,9 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         f"- 학습 데이터 수: {result.train_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
         f"- 검증 데이터 수: {result.validation_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
         f"- 최고 성능 모델: {result.best_model_name}",
-        "- best model 저장 여부: 저장됨",
+        "- best model 저장: 완료",
         f"- 모델 artifact 경로: {model_path.name}",
-        f"- 모델 메타정보 경로: {metadata_path.name}",
+        f"- 모델 metadata 경로: {metadata_path.name}",
         "",
         "## 모델 비교",
         "",
@@ -355,9 +373,11 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         "",
         "## 전처리 요약",
         "",
+        f"- 선택된 독립변수: {', '.join(result.preprocessing_summary.selected_feature_columns) if result.preprocessing_summary.selected_feature_columns else '없음'}",
         f"- 수치형 컬럼: {', '.join(result.preprocessing_summary.numeric_columns) if result.preprocessing_summary.numeric_columns else '없음'}",
         f"- 범주형 컬럼: {', '.join(result.preprocessing_summary.categorical_columns) if result.preprocessing_summary.categorical_columns else '없음'}",
         f"- 날짜형 컬럼: {', '.join(result.preprocessing_summary.datetime_columns) if result.preprocessing_summary.datetime_columns else '없음'}",
+        f"- 식별자 자동 제외: {', '.join(result.preprocessing_summary.identifier_columns) if result.preprocessing_summary.identifier_columns else '없음'}",
         "",
     ]
 

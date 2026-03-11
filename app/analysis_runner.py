@@ -7,7 +7,7 @@ from pathlib import Path
 from app.experiment import append_experiment_log, save_config_snapshot, save_data_summary
 from app.io import load_dataset
 from app.preprocessing import save_preprocessing_summary
-from app.profiling import profile_dataset
+from app.profiling import ProfileResult, profile_dataset
 from app.report import build_markdown_report, save_html_report, save_markdown_report
 from app.train import ModelResult, save_model_results, train_and_compare_models
 from app.visualization import generate_boxplots, generate_correlation_heatmap, generate_histograms
@@ -27,6 +27,7 @@ class AnalysisRunContext:
 @dataclass
 class AnalysisRunResult:
     context: AnalysisRunContext
+    profile: ProfileResult
     report_path: Path
     charts_dir: Path
     warnings_markdown_path: Path
@@ -34,6 +35,7 @@ class AnalysisRunResult:
     experiment_log_path: Path
     model_result: ModelResult | None
     model_artifacts: dict[str, Path]
+    warnings: list[WarningRecord]
 
 
 def build_output_dir(base_output_dir: str | Path, run_time: datetime | None = None) -> Path:
@@ -80,6 +82,7 @@ def execute_analysis(context: AnalysisRunContext) -> AnalysisRunResult:
         model_result = train_and_compare_models(
             df,
             str(settings["target"]),
+            feature_columns=list(settings["feature_columns"]) if settings.get("feature_columns") is not None else None,
             test_size=float(settings["test_size"]),
             task_type=str(settings["task_type"]),
             random_state=int(settings["random_state"]),
@@ -141,6 +144,7 @@ def execute_analysis(context: AnalysisRunContext) -> AnalysisRunResult:
 
     return AnalysisRunResult(
         context=context,
+        profile=profile,
         report_path=report_path,
         charts_dir=charts_dir,
         warnings_markdown_path=warnings_md_path,
@@ -148,6 +152,7 @@ def execute_analysis(context: AnalysisRunContext) -> AnalysisRunResult:
         experiment_log_path=log_path,
         model_result=model_result,
         model_artifacts=model_artifacts,
+        warnings=warning_records,
     )
 
 
@@ -191,6 +196,7 @@ def _build_config_snapshot(context: AnalysisRunContext) -> dict[str, object]:
         "input_file": str(context.input_path),
         "config_path": context.config_path,
         "target": settings["target"],
+        "feature_columns": settings["feature_columns"],
         "task_type": settings["task_type"],
         "report_format": settings["report_format"],
         "random_state": settings["random_state"],

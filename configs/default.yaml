@@ -1,5 +1,9 @@
 input_path: data/sample.csv
 target: buy
+feature_columns:
+  - age
+  - score
+  - city
 output_dir: outputs
 report_format: md
 task_type: auto

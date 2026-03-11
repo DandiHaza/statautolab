@@ -5,6 +5,8 @@ env/
 ENV/
 .python-version
 .tmp/
+.streamlit_uploads/
+temp_bootstrap/
 
 __pycache__/
 *.py[cod]
