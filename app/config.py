@@ -9,6 +9,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "input_path": None,
     "target": None,
     "feature_columns": None,
+    "selected_model": None,
     "output_dir": "outputs",
     "report_format": "md",
     "task_type": "auto",
@@ -102,3 +103,7 @@ def validate_settings(settings: dict[str, object]) -> None:
     if feature_columns is not None:
         if not isinstance(feature_columns, list) or not all(isinstance(column, str) for column in feature_columns):
             raise ValueError("`feature_columns`는 컬럼명 문자열 리스트여야 합니다.")
+
+    selected_model = settings.get("selected_model")
+    if selected_model is not None and not isinstance(selected_model, str):
+        raise ValueError("`selected_model`은 문자열 모델명으로 지정해야 합니다.")

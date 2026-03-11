@@ -51,6 +51,7 @@ python run_analysis.py --input data/examples/eda_sample.csv
 - 교차검증 fold 수 입력
 - 결과 요약 확인
 - 생성된 리포트와 결과 파일 다운로드
+- 회귀 선택 시 OLS 스타일 상세 회귀 결과표 제공
 
 ## 예제 데이터
 

@@ -35,6 +35,7 @@ def train_and_compare_models(
     df: pd.DataFrame,
     target_column: str,
     feature_columns: list[str] | None = None,
+    selected_model: str | None = None,
     test_size: float = 0.2,
     task_type: str = "auto",
     random_state: int = 42,
@@ -90,6 +91,11 @@ def train_and_compare_models(
         )
 
     models = get_baseline_models(problem_type)
+    if selected_model is not None:
+        if selected_model not in models:
+            available_models = ", ".join(models.keys())
+            raise ValueError(f"선택한 모델을 찾을 수 없습니다: {selected_model}. 사용 가능한 모델: {available_models}")
+        models = {selected_model: models[selected_model]}
     if eval_method == "cv":
         metrics_df, effective_cv_folds, model_warnings = _evaluate_with_cv(
             features=features,
@@ -119,7 +125,7 @@ def train_and_compare_models(
     if metrics_df.empty:
         raise ValueError("모든 baseline 모델 학습이 실패했습니다. warnings_summary를 확인해 주세요.")
 
-    best_model_name = _select_best_model(metrics_df, problem_type)
+    best_model_name = selected_model or _select_best_model(metrics_df, problem_type)
     best_model_pipeline = _fit_best_model_pipeline(
         features=features,
         target=target,
