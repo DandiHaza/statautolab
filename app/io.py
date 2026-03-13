@@ -6,6 +6,19 @@ import pandas as pd
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
+CSV_FALLBACK_ENCODINGS = ("utf-8-sig", "utf-8", "cp1252", "latin1")
+
+
+def _normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    renamed = []
+    for column in df.columns:
+        cleaned = str(column).replace("\ufeff", "").replace("ï»¿", "").strip()
+        if cleaned.startswith('"') and cleaned.endswith('"') and len(cleaned) >= 2:
+            cleaned = cleaned[1:-1]
+        renamed.append(cleaned)
+    result = df.copy()
+    result.columns = renamed
+    return result
 
 
 def load_dataset(file_path: str | Path) -> pd.DataFrame:
@@ -31,16 +44,19 @@ def load_dataset(file_path: str | Path) -> pd.DataFrame:
         )
 
     if suffix == ".csv":
-        try:
-            return pd.read_csv(path)
-        except Exception as exc:
-            raise ValueError(
-                f"CSV 파일을 읽는 중 오류가 발생했습니다: {path.resolve()}. "
-                "파일 인코딩이나 구분자를 확인하세요."
-            ) from exc
+        last_error: Exception | None = None
+        for encoding in CSV_FALLBACK_ENCODINGS:
+            try:
+                return _normalize_column_names(pd.read_csv(path, encoding=encoding))
+            except Exception as exc:
+                last_error = exc
+        raise ValueError(
+            f"CSV 파일을 읽는 중 오류가 발생했습니다: {path.resolve()}. "
+            "UTF-8, CP1252, Latin-1 인코딩으로 시도했지만 읽지 못했습니다. 파일 인코딩이나 구분자를 확인하세요."
+        ) from last_error
 
     try:
-        return pd.read_excel(path)
+        return _normalize_column_names(pd.read_excel(path))
     except Exception as exc:
         raise ValueError(
             f"Excel 파일을 읽는 중 오류가 발생했습니다: {path.resolve()}. "

@@ -20,3 +20,6 @@ tests/pytest-cache-files-*/
 outputs/
 outputs_*/
 
+notebooks/
+data/debug/
+

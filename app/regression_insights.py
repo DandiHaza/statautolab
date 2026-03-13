@@ -26,6 +26,8 @@ class RegressionDashboardData:
     ols_diagnostics: dict[str, float | None]
     ols_summary_text: str | None
     combined_summary_table: pd.DataFrame
+    vif_table: pd.DataFrame
+    high_correlation_pairs: pd.DataFrame
 
 
 def _clean_feature_name(name: str) -> str:
@@ -159,14 +161,55 @@ def _build_linear_regression_coefficients(
 
 
 def _build_combined_summary_table(ols_coefficients: pd.DataFrame) -> pd.DataFrame:
-    coefficient_rows = ols_coefficients.copy()
-    if coefficient_rows.empty:
-        return pd.DataFrame(
-            columns=["section", "feature", "coefficient", "std_error", "t_value", "p_value", "ci_lower", "ci_upper"]
-        )
+    if ols_coefficients.empty:
+        return pd.DataFrame(columns=["feature", "coefficient", "std_error", "t_value", "p_value", "ci_lower", "ci_upper"])
+    return ols_coefficients.reset_index(drop=True)
 
-    coefficient_rows.insert(0, "section", "회귀계수")
-    return coefficient_rows.reset_index(drop=True)
+
+def _build_multicollinearity_details(
+    df: pd.DataFrame,
+    feature_columns: list[str],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    numeric_df = df[feature_columns].select_dtypes(include="number").copy()
+    if numeric_df.shape[1] < 2:
+        return pd.DataFrame(columns=["feature_1", "feature_2", "correlation"]), pd.DataFrame(columns=["feature", "vif"])
+
+    corr = numeric_df.corr(numeric_only=True)
+    pair_rows: list[dict[str, object]] = []
+    columns = corr.columns.tolist()
+    for left_idx, left in enumerate(columns):
+        for right in columns[left_idx + 1 :]:
+            corr_value = float(corr.loc[left, right])
+            if abs(corr_value) >= 0.7:
+                pair_rows.append(
+                    {
+                        "feature_1": left,
+                        "feature_2": right,
+                        "correlation": corr_value,
+                        "abs_correlation": abs(corr_value),
+                    }
+                )
+    pair_df = pd.DataFrame(pair_rows)
+    if not pair_df.empty:
+        pair_df = pair_df.sort_values("abs_correlation", ascending=False).drop(columns=["abs_correlation"]).reset_index(drop=True)
+
+    try:
+        from statsmodels.stats.outliers_influence import variance_inflation_factor
+    except Exception:
+        return pair_df, pd.DataFrame(columns=["feature", "vif"])
+
+    imputed_df = numeric_df.fillna(numeric_df.mean(numeric_only=True))
+    vif_rows: list[dict[str, float | str]] = []
+    values = imputed_df.astype(float).values
+    for idx, column in enumerate(imputed_df.columns):
+        vif_rows.append(
+            {
+                "feature": column,
+                "vif": float(variance_inflation_factor(values, idx)),
+            }
+        )
+    vif_df = pd.DataFrame(vif_rows).sort_values("vif", ascending=False).reset_index(drop=True)
+    return pair_df, vif_df
 
 
 def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult) -> RegressionDashboardData | None:
@@ -206,9 +249,9 @@ def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult)
     )
     predictions_preview = pd.DataFrame(
         {
-            "actual": target,
-            "predicted": predictions,
-            "residual": residuals,
+            "actual": target.astype(float),
+            "predicted": pd.Series(predictions, index=target.index).astype(float),
+            "residual": residuals.astype(float),
         }
     ).reset_index(drop=True)
 
@@ -223,6 +266,7 @@ def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult)
         feature_columns,
     )
     combined_summary_table = _build_combined_summary_table(ols_coefficients)
+    high_correlation_pairs, vif_table = _build_multicollinearity_details(model_df, feature_columns)
 
     return RegressionDashboardData(
         best_metrics=evaluation,
@@ -237,4 +281,6 @@ def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult)
         ols_diagnostics=ols_diagnostics,
         ols_summary_text=ols_summary_text,
         combined_summary_table=combined_summary_table,
+        vif_table=vif_table,
+        high_correlation_pairs=high_correlation_pairs,
     )
