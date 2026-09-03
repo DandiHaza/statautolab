@@ -10,7 +10,7 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.63-FF4B4B?logo=streamlit&logoColor=white)
 ![statsmodels](https://img.shields.io/badge/statsmodels-OLS-4B8BBE)
-![tests](https://img.shields.io/badge/tests-30%20passed-success)
+![tests](https://img.shields.io/badge/tests-40%20passed-success)
 
 **▶ 지금 바로 써보기 — <https://statautolab.streamlit.app/>**
 설치 없이 브라우저에서 CSV를 올려 분석까지 실행할 수 있습니다.
@@ -143,7 +143,15 @@ StatAutoLab/
 │   ├── experiment.py          #   실행 스냅샷 · 실험 로그
 │   └── analysis_runner.py     #   전체 파이프라인 오케스트레이션
 │
-├── streamlit_app.py           # 웹 UI (app/ 을 호출하는 프레젠테이션 계층)
+├── ui/                        # 웹 화면 구성 요소 (표시만 담당, 분석 로직 없음)
+│   ├── constants.py           #   라벨 · 예제 데이터 카탈로그
+│   ├── state.py               #   세션 상태 · 세션별 작업 경로
+│   ├── analysis.py            #   화면용 계산 (Streamlit 캐시 적용)
+│   ├── formatting.py          #   표 컬럼명 한글화
+│   ├── data_view.py           #   데이터 선택 · EDA 화면
+│   └── result_view.py         #   분석 결과 화면
+│
+├── streamlit_app.py           # 웹 UI 진입점 (app/ 과 ui/ 를 연결)
 ├── run_analysis.py            # CLI 진입점 (app/ 을 호출하는 프레젠테이션 계층)
 │
 ├── configs/default.yaml       # 실행 설정 예시
@@ -153,7 +161,7 @@ StatAutoLab/
 ├── docs/
 │   ├── sample_run/            # 커밋된 실제 실행 결과 (리포트 + 차트)
 │   └── UPDATE_LOG.md          # 개발 변경 이력
-├── tests/                     # pytest 30개
+├── tests/                     # pytest 40개
 ├── requirements.txt
 └── pytest.ini
 ```
@@ -221,6 +229,11 @@ flowchart TD
 - 날짜형 컬럼 감지 후 제외 (자동 feature engineering 미지원이므로 경고와 함께)
 
 웹 UI에서는 추가로 **고상관 변수쌍**과 **VIF**를 계산해 제거 후보를 버튼으로 바로 반영할 수 있습니다.
+
+### 웹 UI
+- **예제 데이터 원클릭 체험** — 파일이 없어도 5종 예제 중 하나를 고르면 타깃까지 설정되어 바로 실행할 수 있습니다.
+- 평가 방식(홀드아웃/교차검증), 검증 비율, fold 수, 랜덤 시드를 화면에서 지정할 수 있습니다.
+- 방문자별로 업로드·결과 폴더가 분리되어 동시 접속 시에도 서로의 데이터에 영향을 주지 않습니다.
 
 ### 모델링
 
@@ -336,9 +349,12 @@ baseline 모델 중 하나가 학습에 실패해도 전체 실행을 중단하�
 python -m pytest
 ```
 
-30개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 경고 수집, 실험 로그, 차트 폰트,
-CLI 인자 파싱을 검증하고,
-`test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
+40개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 경고 수집, 실험 로그, 차트 폰트,
+CLI 인자 파싱을 검증합니다.
+
+- `test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
+- `test_streamlit_app.py`는 Streamlit `AppTest`로 **웹 UI를 실제 렌더링**해 예제 데이터 진입,
+  세션 격리, 평가 옵션 전환, 분석 실행까지 화면 흐름 그대로 검증합니다.
 
 ---
 
