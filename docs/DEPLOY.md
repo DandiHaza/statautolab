@@ -15,21 +15,35 @@
 | apt 패키지 | `packages.txt` — 차트 한글 표시를 위한 `fonts-nanum` |
 | headless 렌더링 | `app/visualization.py`의 `matplotlib.use("Agg")` |
 
-## 공개 설정 확인
+## 공개 상태 확인
 
-앱이 비공개 상태면 링크를 연 사람이 Streamlit 로그인 화면으로 넘어가 내용을 볼 수 없습니다.
-포트폴리오 링크로 공유한다면 공개로 두어야 합니다.
+현재 앱은 **공개(Public)** 상태이며, 로그인 없이 누구나 접속할 수 있습니다.
 
-1. [share.streamlit.io](https://share.streamlit.io)에서 앱을 엽니다.
-2. 우측 상단 **Settings** → **Sharing**으로 들어갑니다.
-3. 공개 범위를 **Public**(링크가 있는 누구나 조회 가능)으로 지정합니다.
+가장 확실한 확인 방법은 브라우저 시크릿 창으로 주소를 여는 것입니다.
+로그인 요구 없이 앱 화면이 뜨면 정상입니다.
 
-브라우저 시크릿 창으로 주소를 열어 로그인 요구 없이 화면이 뜨면 정상입니다.
-터미널로 확인하려면 아래가 `200`이어야 하고, `303`이면 아직 비공개입니다.
+**터미널로 확인할 때 주의할 점이 있습니다.** Streamlit은 접속자에게 익명 세션 쿠키를
+발급하려고 `/-/auth/app`으로 리다이렉트합니다. 이는 비공개 앱의 로그인 벽이 아니라
+모든 방문자에게 일어나는 정상 동작이므로, 쿠키를 저장하지 않으면 공개 앱인데도
+`303`만 보고 비공개로 오판하게 됩니다. 반드시 쿠키 저장소(`-c`/`-b`)를 붙여야 합니다.
 
 ```powershell
-curl -s -o NUL -w "%{http_code}" https://statautolab.streamlit.app/
+curl -s -L -c cookies.txt -b cookies.txt -o NUL -w "%{http_code}" https://statautolab.streamlit.app/
 ```
+
+리다이렉트를 세 번 거쳐 최종적으로 `200`이 나오면 공개 상태입니다.
+공개 범위를 바꾸려면 [share.streamlit.io](https://share.streamlit.io)에서 앱을 열고
+**Settings** → **Sharing**에서 조정합니다.
+
+## 개발 컨테이너 (GitHub Codespaces)
+
+`.devcontainer/devcontainer.json`이 있어 Codespaces에서 바로 실행할 수 있습니다.
+컨테이너가 `packages.txt`와 `requirements.txt`를 설치한 뒤 8501 포트로 앱을 띄웁니다.
+
+다만 컨테이너 이미지가 **Python 3.11**이라 이 프로젝트의 기준 버전(3.12)과 다릅니다.
+현재 코드는 3.11에서도 동작하지만 로컬·배포 환경과 버전을 맞추려면
+`devcontainer.json`의 `image`를 `mcr.microsoft.com/devcontainers/python:1-3.12-bookworm`으로
+바꾸면 됩니다.
 
 ## 재배포 후 점검 목록
 
