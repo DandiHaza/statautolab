@@ -1,0 +1,203 @@
+{
+  "input_file": "data\\real\\winequality-red.csv",
+  "row_count": 1599,
+  "column_count": 12,
+  "dtype_summary": [
+    {
+      "column": "alcohol",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 65
+    },
+    {
+      "column": "chlorides",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 153
+    },
+    {
+      "column": "citric acid",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 80
+    },
+    {
+      "column": "density",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 436
+    },
+    {
+      "column": "fixed acidity",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 96
+    },
+    {
+      "column": "free sulfur dioxide",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 60
+    },
+    {
+      "column": "pH",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 89
+    },
+    {
+      "column": "quality",
+      "dtype": "int64",
+      "non_null_count": 1599,
+      "unique_count": 6
+    },
+    {
+      "column": "residual sugar",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 91
+    },
+    {
+      "column": "sulphates",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 96
+    },
+    {
+      "column": "total sulfur dioxide",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 144
+    },
+    {
+      "column": "volatile acidity",
+      "dtype": "float64",
+      "non_null_count": 1599,
+      "unique_count": 143
+    }
+  ],
+  "missing_top": [
+    {
+      "column": "alcohol",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "chlorides",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "citric acid",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "density",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "fixed acidity",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "free sulfur dioxide",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "pH",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "quality",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "residual sugar",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    },
+    {
+      "column": "sulphates",
+      "missing_count": 0,
+      "missing_ratio_pct": 0.0
+    }
+  ],
+  "outlier_top": [
+    {
+      "column": "residual sugar",
+      "outlier_count": 155,
+      "outlier_ratio_pct": 9.693558474046279,
+      "lower_bound": 0.8499999999999996,
+      "upper_bound": 3.6500000000000004
+    },
+    {
+      "column": "chlorides",
+      "outlier_count": 112,
+      "outlier_ratio_pct": 7.004377736085053,
+      "lower_bound": 0.04000000000000002,
+      "upper_bound": 0.11999999999999998
+    },
+    {
+      "column": "sulphates",
+      "outlier_count": 59,
+      "outlier_ratio_pct": 3.6898061288305186,
+      "lower_bound": 0.28000000000000014,
+      "upper_bound": 0.9999999999999999
+    },
+    {
+      "column": "total sulfur dioxide",
+      "outlier_count": 55,
+      "outlier_ratio_pct": 3.4396497811131956,
+      "lower_bound": -38.0,
+      "upper_bound": 122.0
+    },
+    {
+      "column": "fixed acidity",
+      "outlier_count": 49,
+      "outlier_ratio_pct": 3.0644152595372107,
+      "lower_bound": 3.95,
+      "upper_bound": 12.349999999999998
+    },
+    {
+      "column": "density",
+      "outlier_count": 45,
+      "outlier_ratio_pct": 2.8142589118198873,
+      "lower_bound": 0.9922475000000001,
+      "upper_bound": 1.0011875
+    },
+    {
+      "column": "pH",
+      "outlier_count": 35,
+      "outlier_ratio_pct": 2.1888680425265794,
+      "lower_bound": 2.925,
+      "upper_bound": 3.6849999999999996
+    },
+    {
+      "column": "free sulfur dioxide",
+      "outlier_count": 30,
+      "outlier_ratio_pct": 1.876172607879925,
+      "lower_bound": -14.0,
+      "upper_bound": 42.0
+    },
+    {
+      "column": "quality",
+      "outlier_count": 28,
+      "outlier_ratio_pct": 1.7510944340212633,
+      "lower_bound": 3.5,
+      "upper_bound": 7.5
+    },
+    {
+      "column": "volatile acidity",
+      "outlier_count": 19,
+      "outlier_ratio_pct": 1.188242651657286,
+      "lower_bound": 0.015000000000000013,
+      "upper_bound": 1.0150000000000001
+    }
+  ]
+}

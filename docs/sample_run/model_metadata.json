@@ -1,0 +1,48 @@
+{
+  "target": "quality",
+  "problem_type": "regression",
+  "eval_method": "cv",
+  "cv_folds": 5,
+  "best_model_name": "RandomForestRegressor",
+  "artifact_path": "outputs\\20260903\\170743\\best_model.joblib",
+  "selected_feature_columns": [
+    "fixed acidity",
+    "volatile acidity",
+    "citric acid",
+    "residual sugar",
+    "chlorides",
+    "free sulfur dioxide",
+    "total sulfur dioxide",
+    "density",
+    "pH",
+    "sulphates",
+    "alcohol"
+  ],
+  "numeric_columns": [
+    "fixed acidity",
+    "volatile acidity",
+    "citric acid",
+    "residual sugar",
+    "chlorides",
+    "free sulfur dioxide",
+    "total sulfur dioxide",
+    "density",
+    "pH",
+    "sulphates",
+    "alcohol"
+  ],
+  "categorical_columns": [],
+  "datetime_columns": [],
+  "identifier_columns": [],
+  "best_metrics": {
+    "model": "RandomForestRegressor",
+    "problem_type": "regression",
+    "evaluated_folds": 5.0,
+    "mae": 0.4136148413009404,
+    "mae_std": 0.02041984251239782,
+    "r2": 0.49366767575542525,
+    "r2_std": 0.027480077448979373,
+    "rmse": 0.5737729695679298,
+    "rmse_std": 0.021323106188856696
+  }
+}

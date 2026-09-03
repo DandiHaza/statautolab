@@ -2,6 +2,25 @@
 
 프로젝트의 주요 업데이트를 날짜별로 기록합니다.
 
+## 2026-09-03
+
+### 저장소 구조 정리
+- 이중으로 중첩돼 있던 `StatAutoLab/statautolab/` 폴더를 한 단계로 평탄화했습니다.
+- 완전히 동일한 중복본이던 `data/sample.csv`를 제거하고 예제 데이터를 `data/examples/`로 일원화했습니다.
+- 미사용 상태였던 `sample_dates.csv`를 `data/examples/datetime_sample.csv`로 편입해 날짜형 컬럼 경고 예제로 문서화했습니다.
+- `UPDATE_LOG.md`를 `docs/`로 옮기고, 어디서도 호출되지 않던 `model_selection.build_preprocessor()`를 삭제했습니다.
+
+### 산출물 이식성 수정
+- 리포트의 차트 이미지 경로가 절대경로로 기록되던 문제를 고쳐 상대경로(`charts/...`)로 저장합니다. 결과 폴더를 옮기거나 공유해도 이미지가 깨지지 않고, 로컬 경로도 노출되지 않습니다.
+- Markdown/JSON/HTML 산출물을 BOM 없는 UTF-8로 저장하도록 변경했습니다. 이전에는 BOM 때문에 `json.load()` 등 표준 방식으로 JSON 산출물을 읽으면 실패했습니다.
+
+### 문서
+- README를 처음 보는 사람이 프로젝트를 파악할 수 있도록 다시 썼습니다. 파이프라인 흐름도, 모듈별 역할, 설계 의도, 알려진 한계를 추가했습니다.
+- 실제 실행 산출물을 `docs/sample_run/`에 포함해 설치 없이 결과 리포트를 볼 수 있게 했습니다.
+
+### 개발 환경
+- 루트에서 `pytest`를 실행하면 접근 불가 임시 폴더를 수집하다 실패하던 문제를 `pytest.ini`의 `testpaths`/`norecursedirs` 설정으로 해결했습니다.
+
 ## 2026-03-13
 
 ### UI/UX

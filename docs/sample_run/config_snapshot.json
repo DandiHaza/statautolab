@@ -1,0 +1,16 @@
+{
+  "run_id": "20260903_171637",
+  "timestamp": "2026-09-03T17:16:37",
+  "input_file": "data\\real\\winequality-red.csv",
+  "config_path": null,
+  "target": "quality",
+  "feature_columns": null,
+  "selected_model": null,
+  "task_type": "auto",
+  "report_format": "md",
+  "random_state": 42,
+  "test_size": 0.2,
+  "eval_method": "cv",
+  "cv_folds": 5,
+  "output_dir": "outputs\\20260903\\170743"
+}
