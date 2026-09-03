@@ -125,6 +125,7 @@ def execute_analysis(context: AnalysisRunContext) -> AnalysisRunResult:
         model_result=model_result,
         warnings=warning_records,
         model_artifacts=model_artifacts,
+        base_dir=context.output_dir,
     )
 
     report_path = _save_report(report_content, context)

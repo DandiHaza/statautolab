@@ -28,7 +28,7 @@ def save_config_snapshot(config: dict[str, object], output_dir: str | Path) -> P
     config_path = output_path / "config_snapshot.json"
     config_path.write_text(
         json.dumps(_to_serializable(config), ensure_ascii=False, indent=2),
-        encoding="utf-8-sig",
+        encoding="utf-8",
     )
     return config_path
 
@@ -45,7 +45,7 @@ def save_data_summary(profile: ProfileResult, input_file: str | Path, output_dir
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     summary_path = output_path / "data_summary.json"
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     return summary_path
 
 

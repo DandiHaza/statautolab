@@ -172,5 +172,5 @@ def save_preprocessing_summary(summary: PreprocessingSummary, output_dir: str | 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     summary_path = output_path / "preprocessing_summary.md"
-    summary_path.write_text(build_preprocessing_summary_markdown(summary), encoding="utf-8-sig")
+    summary_path.write_text(build_preprocessing_summary_markdown(summary), encoding="utf-8")
     return summary_path

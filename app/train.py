@@ -356,7 +356,7 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         },
     }
     metadata_path = output_path / "model_metadata.json"
-    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
     problem_type_label = "회귀" if result.problem_type == "regression" else "분류"
     summary_lines = [
@@ -388,5 +388,5 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
     ]
 
     summary_path = output_path / "model_summary.md"
-    summary_path.write_text("\n".join(summary_lines), encoding="utf-8-sig")
+    summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
     return comparison_path, summary_path, model_path, metadata_path

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -9,6 +10,16 @@ from app.preprocessing import PreprocessingSummary
 from app.profiling import ProfileResult
 from app.train import ModelResult
 from app.warnings_log import WarningRecord
+
+
+def _to_report_relative_path(path: Path, base_dir: Path | None) -> str:
+    """Render chart links relative to the report file so the output folder stays portable."""
+    if base_dir is not None:
+        try:
+            return Path(os.path.relpath(path, base_dir)).as_posix()
+        except ValueError:
+            pass
+    return Path(path.parent.name, path.name).as_posix()
 
 
 def _table_to_markdown(df: pd.DataFrame, index: bool = False) -> str:
@@ -192,6 +203,7 @@ def build_markdown_report(
     model_result: ModelResult | None = None,
     warnings: list[WarningRecord] | None = None,
     model_artifacts: dict[str, Path] | None = None,
+    base_dir: Path | None = None,
 ) -> str:
     dtype_overview = _build_dtype_overview(profile)
     top_missing = _build_top_missing(profile)
@@ -256,7 +268,7 @@ def build_markdown_report(
         lines.append(_table_to_markdown(top_correlations.drop(columns=["abs_correlation"])))
         if correlation_path is not None:
             lines.append("")
-            lines.append(f"![correlation_matrix]({correlation_path.as_posix()})")
+            lines.append(f"![correlation_matrix]({_to_report_relative_path(correlation_path, base_dir)})")
     lines.append("")
 
     lines.append("## 6. 전처리 요약")
@@ -327,7 +339,7 @@ def build_markdown_report(
 def save_markdown_report(content: str, output_path: str | Path) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8-sig")
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -461,5 +473,5 @@ def render_html_report(markdown_content: str, title: str) -> str:
 def save_html_report(markdown_content: str, output_path: str | Path, title: str) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_html_report(markdown_content, title), encoding="utf-8-sig")
+    path.write_text(render_html_report(markdown_content, title), encoding="utf-8")
     return path

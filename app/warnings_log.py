@@ -106,7 +106,7 @@ def save_warnings_json(warnings: list[WarningRecord], output_dir: str | Path) ->
     json_path = output_path / "warnings.json"
     json_path.write_text(
         json.dumps([asdict(record) for record in warnings], ensure_ascii=False, indent=2),
-        encoding="utf-8-sig",
+        encoding="utf-8",
     )
     return json_path
 
@@ -135,6 +135,6 @@ def save_warnings_summary(warnings: list[WarningRecord], output_dir: str | Path)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     markdown_path = output_path / "warnings_summary.md"
-    markdown_path.write_text(build_warnings_summary_markdown(warnings), encoding="utf-8-sig")
+    markdown_path.write_text(build_warnings_summary_markdown(warnings), encoding="utf-8")
     json_path = save_warnings_json(warnings, output_path)
     return markdown_path, json_path
