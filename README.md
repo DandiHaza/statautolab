@@ -5,11 +5,15 @@
 통계를 처음 다루는 사람도 무엇을 봐야 하는지 고민하지 않도록, 분석 파이프라인 전체를 자동화하고
 결과를 사람이 읽을 수 있는 리포트로 만들어 줍니다. 웹 UI(Streamlit)와 CLI 두 가지로 쓸 수 있습니다.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-statautolab.streamlit.app-FF4B4B?logo=streamlit&logoColor=white)](https://statautolab.streamlit.app/)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.63-FF4B4B?logo=streamlit&logoColor=white)
 ![statsmodels](https://img.shields.io/badge/statsmodels-OLS-4B8BBE)
-![tests](https://img.shields.io/badge/tests-27%20passed-success)
+![tests](https://img.shields.io/badge/tests-30%20passed-success)
+
+**▶ 지금 바로 써보기 — <https://statautolab.streamlit.app/>**
+설치 없이 브라우저에서 CSV를 올려 분석까지 실행할 수 있습니다.
 
 ---
 
@@ -49,7 +53,8 @@ StatAutoLab은 이 과정을 **한 번의 실행으로 묶고**, 그 결과를 �
 
 ## 결과 미리보기
 
-실제 실행 산출물을 저장소에 포함해 두었습니다. **설치 없이 바로 확인할 수 있습니다.**
+직접 돌려보려면 **[라이브 데모](https://statautolab.streamlit.app/)**에서 CSV를 올리면 됩니다.
+결과물만 훑어보고 싶다면 실제 실행 산출물을 저장소에 포함해 두었습니다.
 
 ### [docs/sample_run/report.md](docs/sample_run/report.md) — 최종 분석 리포트 전문
 
@@ -148,7 +153,7 @@ StatAutoLab/
 ├── docs/
 │   ├── sample_run/            # 커밋된 실제 실행 결과 (리포트 + 차트)
 │   └── UPDATE_LOG.md          # 개발 변경 이력
-├── tests/                     # pytest 27개
+├── tests/                     # pytest 30개
 ├── requirements.txt
 └── pytest.ini
 ```
@@ -331,7 +336,8 @@ baseline 모델 중 하나가 학습에 실패해도 전체 실행을 중단하�
 python -m pytest
 ```
 
-27개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 경고 수집, 실험 로그, CLI 인자 파싱을 검증하고,
+30개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 경고 수집, 실험 로그, 차트 폰트,
+CLI 인자 파싱을 검증하고,
 `test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
 
 ---
