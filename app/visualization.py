@@ -5,10 +5,61 @@ from pathlib import Path
 import matplotlib
 import pandas as pd
 import seaborn as sns
+from matplotlib import font_manager
 
 # Force a non-GUI backend so chart generation works in headless CLI environments.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+
+# Axis labels are raw column names, so a CJK-capable font must be selected explicitly:
+# matplotlib defaults to DejaVu Sans, which renders Hangul as empty boxes on every OS.
+# Linux deploy targets additionally need the font installed (see packages.txt).
+KOREAN_FONT_CANDIDATES = (
+    "Malgun Gothic",     # Windows
+    "AppleGothic",       # macOS
+    "NanumGothic",       # Linux, via packages.txt
+    "NanumBarunGothic",
+    "Noto Sans CJK KR",
+)
+
+
+def _find_installed_korean_font() -> str | None:
+    available = {font.name for font in font_manager.fontManager.ttflist}
+    return next((name for name in KOREAN_FONT_CANDIDATES if name in available), None)
+
+
+def _register_nanum_font_files() -> None:
+    """Register font files matplotlib missed because its cache predates the install."""
+    for font_path in font_manager.findSystemFonts():
+        if "nanum" in Path(font_path).name.lower():
+            try:
+                font_manager.fontManager.addfont(font_path)
+            except Exception:
+                continue
+
+
+def configure_chart_fonts() -> str | None:
+    """Select the first available Korean font. Returns its name, or None if none is installed."""
+    # A minus sign has no glyph in most Korean fonts, so render it with the ASCII hyphen.
+    plt.rcParams["axes.unicode_minus"] = False
+
+    selected = _find_installed_korean_font()
+    if selected is None:
+        # On a deploy image, apt may install the font after matplotlib cached its font
+        # list, which leaves the font on disk but invisible to the name lookup above.
+        _register_nanum_font_files()
+        selected = _find_installed_korean_font()
+
+    if selected is not None:
+        # Prepend rather than replace the family, so glyphs the Korean font lacks
+        # still fall back to matplotlib's bundled default.
+        plt.rcParams["font.family"] = "sans-serif"
+        plt.rcParams["font.sans-serif"] = [selected, *plt.rcParams["font.sans-serif"]]
+    return selected
+
+
+SELECTED_CHART_FONT = configure_chart_fonts()
 
 
 def generate_histograms(df: pd.DataFrame, output_dir: str | Path) -> list[Path]:
