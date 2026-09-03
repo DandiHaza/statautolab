@@ -1,25 +1,35 @@
+# 가상환경
 .venv/
 .venv*/
 venv/
 env/
 ENV/
 .python-version
-.tmp/
-.streamlit_uploads/
-temp_bootstrap/
 
+# 파이썬 캐시
 __pycache__/
 *.py[cod]
 
+# 테스트 산출물
 .pytest_cache/
 tests/.pytest_tmp/
 tests/.tmp*/
 pytest-cache-files-*/
 tests/pytest-cache-files-*/
 
+# 실행 결과 (docs/sample_run 에 커밋된 예시가 있습니다)
 outputs/
 outputs_*/
 
+# 로컬 작업 파일
+.tmp/
+.streamlit_uploads/
+temp_bootstrap/
 notebooks/
 data/debug/
 
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -13,12 +13,12 @@ class RunAnalysisTests(unittest.TestCase):
         self.assertEqual(output_dir, Path("outputs") / "20260310" / "113045")
 
     def test_parse_args_accepts_input_option(self) -> None:
-        args = parse_args(["--input", "data/sample.csv"])
-        self.assertEqual(args.input_file, "data/sample.csv")
+        args = parse_args(["--input", "data/examples/classification_sample.csv"])
+        self.assertEqual(args.input_file, "data/examples/classification_sample.csv")
 
     def test_parse_args_accepts_report_format_and_task_type(self) -> None:
         args = parse_args(
-            ["--input", "data/sample.csv", "--target", "buy", "--report-format", "html", "--task-type", "classification"]
+            ["--input", "data/examples/classification_sample.csv", "--target", "buy", "--report-format", "html", "--task-type", "classification"]
         )
         self.assertEqual(args.report_format, "html")
         self.assertEqual(args.task_type, "classification")
@@ -28,6 +28,6 @@ class RunAnalysisTests(unittest.TestCase):
         self.assertEqual(args.config, "configs/default.yaml")
 
     def test_parse_args_accepts_eval_options(self) -> None:
-        args = parse_args(["--input", "data/sample.csv", "--eval-method", "cv", "--cv-folds", "4"])
+        args = parse_args(["--input", "data/examples/classification_sample.csv", "--eval-method", "cv", "--cv-folds", "4"])
         self.assertEqual(args.eval_method, "cv")
         self.assertEqual(args.cv_folds, 4)

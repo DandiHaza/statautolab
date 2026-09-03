@@ -30,7 +30,7 @@ class ExperimentTests(unittest.TestCase):
             base_output_dir=self.tmpdir,
             run_id="20260310_120000",
             timestamp="2026-03-10T12:00:00",
-            input_file="data/sample.csv",
+            input_file="data/examples/classification_sample.csv",
             target="buy",
             task_type="auto",
             eval_method="holdout",
@@ -49,7 +49,7 @@ class ExperimentTests(unittest.TestCase):
 
     def test_save_data_summary_creates_json(self) -> None:
         profile = profile_dataset(pd.DataFrame({"value": [1, 2, 3]}))
-        path = save_data_summary(profile, "data/sample.csv", self.tmpdir)
+        path = save_data_summary(profile, "data/examples/classification_sample.csv", self.tmpdir)
         self.assertTrue(path.exists())
         content = json.loads(path.read_text(encoding="utf-8-sig"))
         self.assertEqual(content["row_count"], 3)

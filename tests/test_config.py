@@ -8,13 +8,13 @@ from app.config import load_config_file, resolve_settings
 class ConfigTests(unittest.TestCase):
     def test_load_config_file_reads_yaml(self) -> None:
         config = load_config_file("configs/default.yaml")
-        self.assertEqual(config["input_path"], "data/sample.csv")
+        self.assertEqual(config["input_path"], "data/examples/classification_sample.csv")
         self.assertEqual(config["report_format"], "md")
         self.assertEqual(config["eval_method"], "holdout")
 
     def test_cli_values_override_config(self) -> None:
         config = {
-            "input_path": "data/sample.csv",
+            "input_path": "data/examples/classification_sample.csv",
             "target": "buy",
             "output_dir": "outputs",
             "report_format": "md",

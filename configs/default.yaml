@@ -1,4 +1,4 @@
-input_path: data/sample.csv
+input_path: data/examples/classification_sample.csv
 target: buy
 feature_columns:
   - age

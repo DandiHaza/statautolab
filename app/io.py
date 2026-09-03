@@ -25,9 +25,9 @@ def load_dataset(file_path: str | Path) -> pd.DataFrame:
     path = Path(file_path)
     if not path.exists():
         sample_hint = (
-            "샘플 파일 `data/sample.csv`가 있으면 `python run_analysis.py --input data/sample.csv`로 바로 실행할 수 있습니다. "
-            if Path("data/sample.csv").exists()
-            else "샘플 파일 `data/sample.csv`가 현재 없으므로 분석할 CSV/XLSX 파일 경로를 직접 지정해야 합니다. "
+            "샘플 파일 `data/examples/classification_sample.csv`가 있으면 `python run_analysis.py --input data/examples/classification_sample.csv`로 바로 실행할 수 있습니다. "
+            if Path("data/examples/classification_sample.csv").exists()
+            else "샘플 파일 `data/examples/classification_sample.csv`가 현재 없으므로 분석할 CSV/XLSX 파일 경로를 직접 지정해야 합니다. "
         )
         raise FileNotFoundError(
             f"입력 파일을 찾을 수 없습니다: {path.resolve()}. "
