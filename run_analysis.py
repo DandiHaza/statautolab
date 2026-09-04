@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from app.analysis_runner import AnalysisRunContext, build_output_dir, build_run_context, execute_analysis, record_failed_run
+from app.analysis_runner import AnalysisRunContext, build_run_context, execute_analysis, record_failed_run
 from app.config import load_config_file, resolve_settings
 
 

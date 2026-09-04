@@ -1,0 +1,4 @@
+# 개발·테스트용. 실행만 할 때는 requirements.txt 만 설치하면 됩니다.
+-r requirements.txt
+
+pytest>=8.3.0

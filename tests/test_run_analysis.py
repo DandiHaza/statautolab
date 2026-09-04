@@ -4,7 +4,8 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from run_analysis import build_output_dir, parse_args
+from app.analysis_runner import build_output_dir
+from run_analysis import parse_args
 
 
 class RunAnalysisTests(unittest.TestCase):

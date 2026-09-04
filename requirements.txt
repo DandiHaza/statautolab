@@ -1,10 +1,14 @@
+# 실행에 필요한 패키지. 배포 환경(Streamlit Cloud)이 이 파일을 설치합니다.
 pandas>=2.2.0
-openpyxl>=3.1.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
-tabulate>=0.9.0
+numpy>=1.26.0
 scikit-learn>=1.5.0
 statsmodels>=0.14.4
+joblib>=1.4.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
 streamlit>=1.44.0
-pytest>=8.3.0
 PyYAML>=6.0.2
+
+# 직접 import 하지는 않지만 없으면 동작하지 않는 것
+openpyxl>=3.1.0   # pandas 의 .xlsx 읽기 엔진
+tabulate>=0.9.0   # DataFrame.to_markdown() 이 리포트 표 생성에 사용
