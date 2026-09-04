@@ -10,7 +10,7 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.63-FF4B4B?logo=streamlit&logoColor=white)
 ![statsmodels](https://img.shields.io/badge/statsmodels-OLS-4B8BBE)
-![tests](https://img.shields.io/badge/tests-50%20passed-success)
+![tests](https://img.shields.io/badge/tests-55%20passed-success)
 
 **▶ 지금 바로 써보기 — <https://statautolab.streamlit.app/>**
 설치 없이 브라우저에서 CSV를 올려 분석까지 실행할 수 있습니다.
@@ -167,7 +167,7 @@ StatAutoLab/
 ├── docs/
 │   ├── sample_run/            # 커밋된 실제 실행 결과 (리포트 + 차트)
 │   └── UPDATE_LOG.md          # 개발 변경 이력
-├── tests/                     # pytest 50개
+├── tests/                     # pytest 55개
 ├── requirements.txt           # 실행용 의존성
 ├── requirements-dev.txt       # 개발·테스트용 (실행용 + pytest)
 ├── packages.txt               # 배포 환경 apt 패키지 (차트 한글 폰트)
@@ -259,6 +259,7 @@ flowchart TD
 
 ### 회귀 분석 대시보드 (웹 UI)
 - statsmodels OLS summary, 회귀식, 회귀계수표(p-value 포함)
+- 범주형 변수는 **기준 범주 방식**으로 인코딩해 계수가 유일하게 결정됩니다. 어떤 범주가 기준인지 화면에 표시합니다
 - 잔차 플롯과 초보자용 해석 문구
 - VIF·고상관 쌍 기반 다중공선성 점검
 
@@ -361,7 +362,7 @@ baseline 모델 중 하나가 학습에 실패해도 전체 실행을 중단하�
 python -m pytest
 ```
 
-50개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 날짜 파생변수, 하이퍼파라미터 탐색,
+55개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 날짜 파생변수, 하이퍼파라미터 탐색,
 경고 수집, 실험 로그, 차트 폰트, CLI 인자 파싱을 검증합니다.
 
 - `test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
