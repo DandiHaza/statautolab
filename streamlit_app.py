@@ -13,7 +13,7 @@ import streamlit as st
 from app.analysis_runner import build_run_context, execute_analysis
 from app.config import DEFAULT_SETTINGS, resolve_settings
 from app.io import SUPPORTED_EXTENSIONS
-from ui.analysis import get_available_models, infer_problem_type
+from ui.analysis import get_available_models, infer_problem_type, load_preview_dataset
 from ui.constants import (
     APP_MODE_LABELS,
     EVAL_METHOD_LABELS,
@@ -30,16 +30,16 @@ from ui.data_view import (
 )
 from ui.result_view import render_result_panel, render_saved_result
 from ui.state import (
-    _sanitize_selected_features,
-    _valid_feature_options,
     clear_analysis_state,
     current_file_key,
+    default_feature_selection,
     get_sample_dataset,
     get_session_id,
+    sanitize_selected_features,
     save_uploaded_file,
     session_output_dir,
+    valid_feature_options,
 )
-from ui.analysis import load_preview_dataset
 
 
 def main() -> None:
@@ -137,14 +137,18 @@ def main() -> None:
             target_options,
             key="target_option",
         )
-        valid_feature_options = _valid_feature_options(all_columns, target_value)
-        st.session_state["selected_features"] = _sanitize_selected_features(valid_feature_options)
+        feature_options = valid_feature_options(all_columns, target_value)
+        default_features = default_feature_selection(preview_df, feature_options)
+        st.session_state["selected_features"] = sanitize_selected_features(feature_options, default_features)
         st.multiselect(
             "독립변수 / 모델 입력 컬럼",
-            options=valid_feature_options,
+            options=feature_options,
             key="selected_features",
-            help="타깃 컬럼은 독립변수 목록에서 자동으로 제외됩니다.",
+            help="타깃 컬럼과 식별자 성격의 컬럼은 기본 선택에서 제외됩니다. 필요하면 직접 추가할 수 있습니다.",
         )
+        auto_excluded = [column for column in feature_options if column not in default_features]
+        if auto_excluded:
+            st.caption(f"식별자로 판단해 기본 선택에서 제외했습니다: {', '.join(auto_excluded)}")
         selected_features = st.session_state["selected_features"] or []
         if selected_features:
             render_feature_selection_feedback(preview_df, selected_features)

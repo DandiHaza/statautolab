@@ -67,6 +67,11 @@ def _looks_like_identifier(column_name: str, series: pd.Series) -> bool:
     return any(token in normalized for token in IDENTIFIER_NAME_PATTERNS)
 
 
+def detect_identifier_columns(frame: pd.DataFrame) -> list[str]:
+    """Columns that look like row identifiers and carry no signal for a model."""
+    return [column for column in frame.columns if _looks_like_identifier(column, frame[column])]
+
+
 def _detect_datetime_columns(features: pd.DataFrame) -> list[str]:
     datetime_columns: list[str] = []
     for column in features.columns:
@@ -99,9 +104,7 @@ def build_preprocessing_pipeline(
 
     if feature_columns is None:
         features = df.drop(columns=[target_column]).copy()
-        identifier_columns = [
-            column for column in features.columns if _looks_like_identifier(column, features[column])
-        ]
+        identifier_columns = detect_identifier_columns(features)
         if identifier_columns:
             features = features.drop(columns=identifier_columns)
     else:

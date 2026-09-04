@@ -5,7 +5,10 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
+
+from app.preprocessing import detect_identifier_columns
 
 from ui.constants import NO_TARGET, OUTPUT_ROOT, SAMPLE_DATASETS, UPLOAD_DIR
 
@@ -64,15 +67,26 @@ def remove_feature_from_selection(feature: str) -> None:
     st.session_state["pending_remove_feature"] = feature
 
 
-def _valid_feature_options(all_columns: list[str], target_value: str) -> list[str]:
+def valid_feature_options(all_columns: list[str], target_value: str) -> list[str]:
     if target_value == NO_TARGET:
         return all_columns
     return [column for column in all_columns if column != target_value]
 
 
-def _sanitize_selected_features(valid_options: list[str]) -> list[str]:
+def default_feature_selection(df: pd.DataFrame, valid_options: list[str]) -> list[str]:
+    """Mirror the CLI default: everything except identifier-looking columns.
+
+    Preselecting every column would hand the model things like `customer_id`, because
+    passing an explicit column list turns off the automatic identifier detection.
+    """
+    identifiers = set(detect_identifier_columns(df[valid_options]))
+    defaults = [column for column in valid_options if column not in identifiers]
+    return defaults or list(valid_options)
+
+
+def sanitize_selected_features(valid_options: list[str], defaults: list[str]) -> list[str]:
     selected = st.session_state.get("selected_features")
     if selected is None:
-        return valid_options.copy()
+        return list(defaults)
     sanitized = [column for column in selected if column in valid_options]
-    return sanitized or valid_options.copy()
+    return sanitized or list(defaults)

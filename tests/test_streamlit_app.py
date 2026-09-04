@@ -87,6 +87,33 @@ class TestSampleSelection:
         assert any(button.label == "이 데이터로 시작" for button in app.button)
 
 
+class TestFeatureDefaults:
+    def test_identifier_columns_are_not_preselected(self, app: AppTest) -> None:
+        # Passing an explicit column list turns off the pipeline's identifier detection,
+        # so preselecting every column would quietly feed customer_id to the model.
+        app.button(key="sample-regression").click().run()
+
+        assert not app.exception
+        assert "customer_id" not in app.session_state["selected_features"]
+        assert app.session_state["selected_features"] == ["age", "income", "city", "visits"]
+
+    def test_auto_exclusion_is_explained_on_screen(self, app: AppTest) -> None:
+        app.button(key="sample-regression").click().run()
+
+        notes = [caption.value for caption in app.caption if "customer_id" in caption.value]
+        assert notes, "무엇이 왜 제외됐는지 화면에 표시되지 않습니다."
+
+    def test_regression_dashboard_reports_real_numbers(self, app: AppTest) -> None:
+        # With customer_id included the design matrix is rank-deficient and the
+        # dashboard used to show nan for Adj. R2 and the F statistic.
+        app.button(key="sample-regression").click().run()
+        app.button(key="run_analysis").click().run()
+
+        assert not app.exception
+        values = {metric.label: metric.value for metric in app.metric}
+        assert "nan" not in values.get("Adj. R2", "nan").lower()
+
+
 class TestEvaluationOptions:
     def test_holdout_exposes_test_size_and_cv_exposes_folds(self, app: AppTest) -> None:
         app.button(key="sample-classification").click().run()
