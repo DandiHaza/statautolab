@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 
 from app.evaluate import evaluate_regression
 from app.model_selection import get_baseline_models
-from app.preprocessing import build_preprocessing_pipeline
+from app.preprocessing import build_preprocessing_pipeline, collect_reference_levels
 from app.train import ModelResult
 
 
@@ -28,6 +28,7 @@ class RegressionDashboardData:
     combined_summary_table: pd.DataFrame
     vif_table: pd.DataFrame
     high_correlation_pairs: pd.DataFrame
+    reference_levels: dict[str, str] = field(default_factory=dict)
 
 
 def _clean_feature_name(name: str) -> str:
@@ -46,17 +47,21 @@ def _build_ols_details(
     df: pd.DataFrame,
     target_column: str,
     feature_columns: list[str],
-) -> tuple[dict[str, float | int | str | None], pd.DataFrame, dict[str, float | None], str | None]:
+) -> tuple[dict[str, float | int | str | None], pd.DataFrame, dict[str, float | None], str | None, dict[str, str]]:
     try:
         import statsmodels.api as sm
     except Exception:
-        return {}, pd.DataFrame(), {}, None
+        return {}, pd.DataFrame(), {}, None, {}
 
     model_df = df.dropna(subset=[target_column]).copy()
+    # One level per categorical column is left out as the reference level. With a full
+    # set of dummies the columns sum to the intercept that add_constant appends, which
+    # makes the design matrix rank-deficient and the coefficients unidentifiable.
     preprocessor, features, _ = build_preprocessing_pipeline(
         model_df,
         target_column,
         feature_columns=feature_columns,
+        drop_first_category=True,
     )
     transformed = preprocessor.fit_transform(features)
     if hasattr(transformed, "toarray"):
@@ -103,7 +108,13 @@ def _build_ols_details(
         "residual_skew": float(pd.Series(ols_model.resid).skew()),
         "residual_kurtosis": float(pd.Series(ols_model.resid).kurt()),
     }
-    return overview, coefficient_table, diagnostics, ols_model.summary().as_text()
+    return (
+        overview,
+        coefficient_table,
+        diagnostics,
+        ols_model.summary().as_text(),
+        collect_reference_levels(preprocessor),
+    )
 
 
 def _build_linear_regression_coefficients(
@@ -260,7 +271,7 @@ def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult)
         "residual_std": float(residuals.std(ddof=0)),
         "max_absolute_residual": float(np.abs(residuals).max()),
     }
-    ols_overview, ols_coefficients, ols_diagnostics, ols_summary_text = _build_ols_details(
+    ols_overview, ols_coefficients, ols_diagnostics, ols_summary_text, reference_levels = _build_ols_details(
         df,
         target_column,
         feature_columns,
@@ -283,4 +294,5 @@ def build_regression_dashboard_data(df: pd.DataFrame, model_result: ModelResult)
         combined_summary_table=combined_summary_table,
         vif_table=vif_table,
         high_correlation_pairs=high_correlation_pairs,
+        reference_levels=reference_levels,
     )

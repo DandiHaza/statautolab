@@ -98,7 +98,16 @@ def build_preprocessing_pipeline(
     df: pd.DataFrame,
     target_column: str,
     feature_columns: list[str] | None = None,
+    drop_first_category: bool = False,
 ) -> tuple[ColumnTransformer, pd.DataFrame, PreprocessingSummary]:
+    """Build the feature pipeline.
+
+    `drop_first_category` leaves out one level per categorical column so it becomes the
+    reference level. OLS adds an intercept, and a full set of dummies sums to that
+    intercept, which makes the design matrix rank-deficient and the coefficients
+    unidentifiable. Prediction models do not add an intercept column, so they keep the
+    full encoding.
+    """
     if target_column not in df.columns:
         raise ValueError(f"타깃 컬럼을 찾을 수 없습니다: {target_column}")
 
@@ -140,7 +149,13 @@ def build_preprocessing_pipeline(
     categorical_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore")),
+            (
+                "encoder",
+                OneHotEncoder(
+                    handle_unknown="ignore",
+                    drop="first" if drop_first_category else None,
+                ),
+            ),
         ]
     )
 
@@ -178,6 +193,25 @@ def build_preprocessing_pipeline(
         excluded_columns=[target_column, *identifier_columns],
     )
     return preprocessor, features, summary
+
+
+def collect_reference_levels(preprocessor: ColumnTransformer) -> dict[str, str]:
+    """Which category was left out per column, when reference-level encoding is used."""
+    try:
+        encoder = preprocessor.named_transformers_["cat"].named_steps["encoder"]
+        columns = next(cols for name, _, cols in preprocessor.transformers_ if name == "cat")
+    except (KeyError, StopIteration, AttributeError):
+        return {}
+
+    dropped = getattr(encoder, "drop_idx_", None)
+    if dropped is None:
+        return {}
+
+    return {
+        str(column): str(categories[dropped[index]])
+        for index, (column, categories) in enumerate(zip(columns, encoder.categories_))
+        if dropped[index] is not None
+    }
 
 
 def build_preprocessing_summary_markdown(summary: PreprocessingSummary) -> str:

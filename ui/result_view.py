@@ -163,6 +163,12 @@ def render_regression_dashboard(result: AnalysisRunResult, source_df: pd.DataFra
     if dashboard_data.combined_summary_table is not None and not dashboard_data.combined_summary_table.empty:
         st.markdown("### 회귀계수표")
         st.dataframe(localize_combined_summary_table(dashboard_data.combined_summary_table), width="stretch")
+        if dashboard_data.reference_levels:
+            baselines = ", ".join(f"`{column}` = {level}" for column, level in dashboard_data.reference_levels.items())
+            st.caption(
+                f"범주형 변수는 기준 범주와 비교한 값입니다. 기준: {baselines}. "
+                "예를 들어 다른 범주의 계수가 +5라면, 기준 범주일 때보다 5만큼 높다는 뜻입니다."
+            )
 
     render_residual_plots(dashboard_data)
     render_multicollinearity_section(dashboard_data)
