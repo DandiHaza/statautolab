@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
+from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 
 from app.evaluate import add_classification_auc, evaluate_classification, evaluate_regression
-from app.model_selection import detect_problem_type, get_baseline_models
+from app.model_selection import detect_problem_type, get_baseline_models, get_param_grid
 from app.preprocessing import PreprocessingSummary, build_preprocessing_pipeline
 from app.warnings_log import WarningRecord
 
@@ -29,6 +29,63 @@ class ModelResult:
     preprocessing_summary: PreprocessingSummary
     warnings: list[WarningRecord]
     best_model_pipeline: Pipeline
+    tuned: bool = False
+    best_params: dict[str, object] = field(default_factory=dict)
+
+
+# Searching over a handful of rows per fold picks noise, not hyperparameters.
+MIN_ROWS_PER_TUNING_FOLD = 5
+MAX_TUNING_FOLDS = 3
+
+
+def _build_inner_cv_folds(
+    problem_type: str,
+    target: pd.Series,
+    eval_method: str,
+    test_size: float,
+    cv_folds: int,
+) -> int | None:
+    """Folds for the tuning search itself.
+
+    The search runs on the training split, not the whole dataset, so the split has to be
+    accounted for here. Returns None when there is too little data for a meaningful search.
+    """
+    train_ratio = (1.0 - 1.0 / max(cv_folds, 2)) if eval_method == "cv" else (1.0 - test_size)
+    train_rows = int(len(target) * train_ratio)
+
+    folds = min(MAX_TUNING_FOLDS, train_rows // MIN_ROWS_PER_TUNING_FOLD)
+    if problem_type == "classification":
+        smallest_class_in_train = int(int(target.value_counts().min()) * train_ratio)
+        folds = min(folds, smallest_class_in_train)
+
+    return folds if folds >= 2 else None
+
+
+def _make_estimator(
+    preprocessor: object,
+    estimator: object,
+    model_name: str,
+    problem_type: str,
+    tune: bool,
+    inner_cv_folds: int | None,
+):
+    """Plain pipeline, or the same pipeline wrapped in a grid search when tuning is on."""
+    pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", estimator)])
+    grid = get_param_grid(model_name)
+    if not tune or not grid or inner_cv_folds is None:
+        return pipeline
+
+    scoring = "neg_root_mean_squared_error" if problem_type == "regression" else "accuracy"
+    # n_jobs stays sequential: the hosted demo runs on a single CPU and process
+    # spawning there costs more than it saves.
+    return GridSearchCV(pipeline, grid, cv=inner_cv_folds, scoring=scoring, refit=True)
+
+
+def _extract_best_params(fitted: object) -> dict[str, object]:
+    params = getattr(fitted, "best_params_", None)
+    if not params:
+        return {}
+    return {str(key).replace("model__", ""): value for key, value in params.items()}
 
 
 def train_and_compare_models(
@@ -41,6 +98,7 @@ def train_and_compare_models(
     random_state: int = 42,
     eval_method: str = "holdout",
     cv_folds: int = 5,
+    tune: bool = False,
 ) -> ModelResult:
     warnings: list[WarningRecord] = []
 
@@ -73,10 +131,13 @@ def train_and_compare_models(
     if preprocessing_summary.datetime_columns:
         warnings.append(
             WarningRecord(
-                code="datetime_columns_excluded",
-                level="warning",
-                message="날짜형 컬럼은 감지되었지만 자동 feature engineering 없이 학습 대상에서 제외했습니다.",
-                details={"columns": preprocessing_summary.datetime_columns},
+                code="datetime_columns_expanded",
+                level="info",
+                message="날짜형 컬럼을 연·월·일·요일 파생변수로 변환해 학습에 사용했습니다.",
+                details={
+                    "columns": preprocessing_summary.datetime_columns,
+                    "derived_columns": preprocessing_summary.datetime_derived_columns,
+                },
             )
         )
 
@@ -96,6 +157,18 @@ def train_and_compare_models(
             available_models = ", ".join(models.keys())
             raise ValueError(f"선택한 모델을 찾을 수 없습니다: {selected_model}. 사용 가능한 모델: {available_models}")
         models = {selected_model: models[selected_model]}
+    inner_cv_folds = _build_inner_cv_folds(problem_type, target, eval_method, test_size, cv_folds)
+    tuning_enabled = tune and inner_cv_folds is not None
+    if tune and not tuning_enabled:
+        warnings.append(
+            WarningRecord(
+                code="tuning_skipped_small_data",
+                level="warning",
+                message="데이터가 적어 하이퍼파라미터 탐색을 건너뛰고 기본 파라미터로 학습했습니다.",
+                details={"rows": int(len(target))},
+            )
+        )
+
     if eval_method == "cv":
         metrics_df, effective_cv_folds, model_warnings = _evaluate_with_cv(
             features=features,
@@ -105,6 +178,8 @@ def train_and_compare_models(
             problem_type=problem_type,
             cv_folds=cv_folds,
             random_state=random_state,
+            tune=tuning_enabled,
+            inner_cv_folds=inner_cv_folds,
         )
         warnings.extend(model_warnings)
         train_rows = 0
@@ -118,6 +193,8 @@ def train_and_compare_models(
             problem_type=problem_type,
             test_size=test_size,
             random_state=random_state,
+            tune=tuning_enabled,
+            inner_cv_folds=inner_cv_folds,
         )
         warnings.extend(model_warnings)
         effective_cv_folds = cv_folds
@@ -126,12 +203,15 @@ def train_and_compare_models(
         raise ValueError("모든 baseline 모델 학습이 실패했습니다. warnings_summary를 확인해 주세요.")
 
     best_model_name = selected_model or _select_best_model(metrics_df, problem_type)
-    best_model_pipeline = _fit_best_model_pipeline(
+    best_model_pipeline, best_params = _fit_best_model_pipeline(
         features=features,
         target=target,
         preprocessor=preprocessor,
         models=models,
         best_model_name=best_model_name,
+        problem_type=problem_type,
+        tune=tuning_enabled,
+        inner_cv_folds=inner_cv_folds,
     )
 
     return ModelResult(
@@ -146,6 +226,8 @@ def train_and_compare_models(
         preprocessing_summary=preprocessing_summary,
         warnings=warnings,
         best_model_pipeline=best_model_pipeline,
+        tuned=tuning_enabled,
+        best_params=best_params,
     )
 
 
@@ -157,6 +239,8 @@ def _evaluate_with_holdout(
     problem_type: str,
     test_size: float,
     random_state: int,
+    tune: bool = False,
+    inner_cv_folds: int | None = None,
 ) -> tuple[pd.DataFrame, int, int, list[WarningRecord]]:
     stratify = None
     if problem_type == "classification":
@@ -176,11 +260,8 @@ def _evaluate_with_holdout(
     warnings: list[WarningRecord] = []
     for model_name, estimator in models.items():
         try:
-            pipeline = Pipeline(
-                steps=[
-                    ("preprocessor", preprocessor),
-                    ("model", estimator),
-                ]
+            pipeline = _make_estimator(
+                preprocessor, estimator, model_name, problem_type, tune, inner_cv_folds
             )
             pipeline.fit(X_train, y_train)
             predictions = pipeline.predict(X_valid)
@@ -216,6 +297,8 @@ def _evaluate_with_cv(
     problem_type: str,
     cv_folds: int,
     random_state: int,
+    tune: bool = False,
+    inner_cv_folds: int | None = None,
 ) -> tuple[pd.DataFrame, int, list[WarningRecord]]:
     splitter, effective_folds = _build_cv_splitter(problem_type, target, cv_folds, random_state)
     rows: list[dict[str, object]] = []
@@ -231,11 +314,8 @@ def _evaluate_with_cv(
                 y_train = target.iloc[train_idx]
                 y_valid = target.iloc[valid_idx]
 
-                pipeline = Pipeline(
-                    steps=[
-                        ("preprocessor", preprocessor),
-                        ("model", estimator),
-                    ]
+                pipeline = _make_estimator(
+                    preprocessor, estimator, model_name, problem_type, tune, inner_cv_folds
                 )
                 pipeline.fit(X_train, y_train)
                 predictions = pipeline.predict(X_valid)
@@ -316,15 +396,18 @@ def _fit_best_model_pipeline(
     preprocessor: object,
     models: dict[str, object],
     best_model_name: str,
-) -> Pipeline:
-    pipeline = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("model", models[best_model_name]),
-        ]
+    problem_type: str,
+    tune: bool = False,
+    inner_cv_folds: int | None = None,
+) -> tuple[Pipeline, dict[str, object]]:
+    estimator = _make_estimator(
+        preprocessor, models[best_model_name], best_model_name, problem_type, tune, inner_cv_folds
     )
-    pipeline.fit(features, target)
-    return pipeline
+    estimator.fit(features, target)
+    best_params = _extract_best_params(estimator)
+    # Unwrap the search so the saved artifact is a plain pipeline, not a GridSearchCV.
+    pipeline = getattr(estimator, "best_estimator_", estimator)
+    return pipeline, best_params
 
 
 def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Path, Path, Path, Path]:
@@ -344,6 +427,8 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         "eval_method": result.eval_method,
         "cv_folds": result.cv_folds,
         "best_model_name": result.best_model_name,
+        "tuned": result.tuned,
+        "best_params": result.best_params,
         "artifact_path": str(model_path),
         "selected_feature_columns": result.preprocessing_summary.selected_feature_columns,
         "numeric_columns": result.preprocessing_summary.numeric_columns,
@@ -369,6 +454,12 @@ def save_model_results(result: ModelResult, output_dir: str | Path) -> tuple[Pat
         f"- 학습 데이터 수: {result.train_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
         f"- 검증 데이터 수: {result.validation_rows if result.eval_method == 'holdout' else 'fold별 분할'}",
         f"- 최고 성능 모델: {result.best_model_name}",
+        f"- 하이퍼파라미터 탐색: {'수행' if result.tuned else '미수행 (기본 파라미터)'}",
+        *(
+            [f"- 탐색으로 선택된 파라미터: {', '.join(f'{k}={v}' for k, v in result.best_params.items())}"]
+            if result.best_params
+            else []
+        ),
         "- best model 저장: 완료",
         f"- 모델 artifact 경로: {model_path.name}",
         f"- 모델 metadata 경로: {metadata_path.name}",

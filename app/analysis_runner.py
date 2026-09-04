@@ -89,6 +89,7 @@ def execute_analysis(context: AnalysisRunContext) -> AnalysisRunResult:
             random_state=int(settings["random_state"]),
             eval_method=str(settings["eval_method"]),
             cv_folds=int(settings["cv_folds"]),
+            tune=bool(settings["tune"]),
         )
         preprocessing_summary = model_result.preprocessing_summary
         warning_records.extend(model_result.warnings)
@@ -206,6 +207,7 @@ def _build_config_snapshot(context: AnalysisRunContext) -> dict[str, object]:
         "test_size": settings["test_size"],
         "eval_method": settings["eval_method"],
         "cv_folds": settings["cv_folds"],
+        "tune": settings["tune"],
         "output_dir": str(context.output_dir),
     }
 

@@ -220,6 +220,15 @@ def main() -> None:
                 cv_folds = int(DEFAULT_SETTINGS["cv_folds"])
                 st.caption(f"전체의 {test_size:.0%}를 검증용으로 떼어 두고 나머지로 학습합니다.")
 
+            tune = st.checkbox(
+                "하이퍼파라미터 탐색",
+                value=bool(DEFAULT_SETTINGS["tune"]),
+                key="tune",
+                help="모델별로 후보 파라미터를 격자 탐색합니다. 성능이 조금 오르지만 실행 시간이 늘어납니다.",
+            )
+            if tune:
+                st.caption("탐색 때문에 실행이 느려집니다. 교차검증과 함께 쓰면 특히 오래 걸립니다.")
+
     just_rendered_result = False
 
     if st.button("분석 실행", key="run_analysis", width="stretch"):
@@ -236,6 +245,7 @@ def main() -> None:
             "test_size": float(test_size),
             "eval_method": eval_method,
             "cv_folds": int(cv_folds),
+            "tune": bool(tune),
         }
 
         try:

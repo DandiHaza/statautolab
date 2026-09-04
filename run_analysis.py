@@ -68,6 +68,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     optional.add_argument("--test-size", type=float, default=None, help="holdout 검증 데이터 비율(0과 1 사이)")
     optional.add_argument("--eval-method", choices=["holdout", "cv"], default=None, help="모델 평가 방식")
     optional.add_argument("--cv-folds", type=int, default=None, help="교차검증 fold 수")
+    optional.add_argument(
+        "--tune",
+        action="store_true",
+        default=None,
+        help="모델별 하이퍼파라미터를 격자 탐색합니다. 시간이 더 걸립니다.",
+    )
     args = parser.parse_args(argv)
     args.input_file = args.input_file_option or args.input_file
     return args
@@ -85,6 +91,7 @@ def build_cli_values(args: argparse.Namespace) -> dict[str, object]:
         "test_size": args.test_size,
         "eval_method": args.eval_method,
         "cv_folds": args.cv_folds,
+        "tune": args.tune,
     }
 
 

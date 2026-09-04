@@ -17,6 +17,7 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "test_size": 0.2,
     "eval_method": "holdout",
     "cv_folds": 5,
+    "tune": False,
 }
 
 ALLOWED_REPORT_FORMATS = {"md", "html"}
@@ -107,3 +108,6 @@ def validate_settings(settings: dict[str, object]) -> None:
     selected_model = settings.get("selected_model")
     if selected_model is not None and not isinstance(selected_model, str):
         raise ValueError("`selected_model`은 문자열 모델명으로 지정해야 합니다.")
+
+    if not isinstance(settings.get("tune"), bool):
+        raise ValueError("`tune`은 true 또는 false여야 합니다.")
