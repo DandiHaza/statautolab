@@ -7,6 +7,7 @@
 - 학습 데이터 수: fold별 분할
 - 검증 데이터 수: fold별 분할
 - 최고 성능 모델: RandomForestRegressor
+- 하이퍼파라미터 탐색: 미수행 (기본 파라미터)
 - best model 저장: 완료
 - 모델 artifact 경로: best_model.joblib
 - 모델 metadata 경로: model_metadata.json

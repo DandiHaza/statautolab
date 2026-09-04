@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 
@@ -13,13 +14,35 @@ from app.warnings_log import WarningRecord
 
 
 def _to_report_relative_path(path: Path, base_dir: Path | None) -> str:
-    """Render chart links relative to the report file so the output folder stays portable."""
+    """Render chart links relative to the report file so the output folder stays portable.
+
+    Column names may contain spaces, and a raw space inside a Markdown link target
+    breaks the image, so the result is percent-encoded.
+    """
+    relative = None
     if base_dir is not None:
         try:
-            return Path(os.path.relpath(path, base_dir)).as_posix()
+            relative = Path(os.path.relpath(path, base_dir)).as_posix()
         except ValueError:
-            pass
-    return Path(path.parent.name, path.name).as_posix()
+            relative = None
+    if relative is None:
+        relative = Path(path.parent.name, path.name).as_posix()
+    return quote(relative)
+
+
+def _chart_label(path: Path) -> str:
+    """`histogram_age.png` -> `age`. Chart files are named `<kind>_<column>.png`."""
+    stem = path.stem
+    return stem.split("_", 1)[1] if "_" in stem else stem
+
+
+def _build_chart_block(paths: list[Path], base_dir: Path | None, caption: str) -> list[str]:
+    if not paths:
+        return []
+    lines = ["", caption, ""]
+    for path in paths:
+        lines.append(f"![{path.stem}]({_to_report_relative_path(path, base_dir)})")
+    return lines
 
 
 def _table_to_markdown(df: pd.DataFrame, index: bool = False) -> str:
@@ -250,6 +273,13 @@ def build_markdown_report(
         lines.append("IQR 기준으로 이상치가 많은 수치형 컬럼은 확인되지 않았습니다.")
     else:
         lines.append(_table_to_markdown(top_outliers))
+    lines.extend(
+        _build_chart_block(
+            boxplot_paths,
+            base_dir,
+            "박스플롯에서 상자 바깥의 점이 IQR 기준 이상치입니다.",
+        )
+    )
     lines.append("")
 
     lines.append("## 4. 수치형 변수 요약")
@@ -258,6 +288,13 @@ def build_markdown_report(
         lines.append("수치형 컬럼이 없어 평균, 표준편차, 최소값, 최대값 요약을 생략합니다.")
     else:
         lines.append(_table_to_markdown(numeric_focus))
+    lines.extend(
+        _build_chart_block(
+            histogram_paths,
+            base_dir,
+            "컬럼별 분포입니다. 한쪽으로 치우쳤는지, 봉우리가 여러 개인지 확인해 보세요.",
+        )
+    )
     lines.append("")
 
     lines.append("## 5. 상관분석 요약")
@@ -297,7 +334,9 @@ def build_markdown_report(
                 f"- 식별자 자동 제외: {', '.join(preprocessing_summary.identifier_columns)}"
             )
         if preprocessing_summary.datetime_columns:
-            lines.append("- 날짜형 컬럼은 자동 feature engineering 없이 제외했습니다.")
+            lines.append(
+                f"- 날짜형 컬럼은 연·월·일·요일 파생변수 {len(preprocessing_summary.datetime_derived_columns)}개로 변환해 사용했습니다."
+            )
     lines.append("")
 
     lines.append("## 7. 모델 결과 요약")
@@ -315,6 +354,11 @@ def build_markdown_report(
             lines.append(f"- 학습 데이터: {model_result.train_rows}행")
             lines.append(f"- 검증 데이터: {model_result.validation_rows}행")
         lines.append(f"- 최고 성능 모델: **{model_result.best_model_name}**")
+        if model_result.tuned:
+            chosen = ", ".join(f"`{key}={value}`" for key, value in model_result.best_params.items())
+            lines.append(f"- 하이퍼파라미터 탐색: 수행{f' (선택된 값: {chosen})' if chosen else ''}")
+        else:
+            lines.append("- 하이퍼파라미터 탐색: 미수행 (기본 파라미터)")
         if artifact_paths:
             lines.append(f"- best model 저장: `{artifact_paths['model'].name}`")
             lines.append(f"- metadata 저장: `{artifact_paths['metadata'].name}`")

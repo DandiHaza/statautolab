@@ -33,6 +33,21 @@
 | total sulfur dioxide |              55 |             3.43965 |
 | fixed acidity        |              49 |             3.06442 |
 
+박스플롯에서 상자 바깥의 점이 IQR 기준 이상치입니다.
+
+![boxplot_fixed acidity](charts/boxplot_fixed%20acidity.png)
+![boxplot_volatile acidity](charts/boxplot_volatile%20acidity.png)
+![boxplot_citric acid](charts/boxplot_citric%20acid.png)
+![boxplot_residual sugar](charts/boxplot_residual%20sugar.png)
+![boxplot_chlorides](charts/boxplot_chlorides.png)
+![boxplot_free sulfur dioxide](charts/boxplot_free%20sulfur%20dioxide.png)
+![boxplot_total sulfur dioxide](charts/boxplot_total%20sulfur%20dioxide.png)
+![boxplot_density](charts/boxplot_density.png)
+![boxplot_pH](charts/boxplot_pH.png)
+![boxplot_sulphates](charts/boxplot_sulphates.png)
+![boxplot_alcohol](charts/boxplot_alcohol.png)
+![boxplot_quality](charts/boxplot_quality.png)
+
 ## 4. 수치형 변수 요약
 
 | column               |       mean |         std |     min |       max |
@@ -47,6 +62,21 @@
 | density              |  0.996747  |  0.00188733 | 0.99007 |   1.00369 |
 | pH                   |  3.31111   |  0.154386   | 2.74    |   4.01    |
 | sulphates            |  0.658149  |  0.169507   | 0.33    |   2       |
+
+컬럼별 분포입니다. 한쪽으로 치우쳤는지, 봉우리가 여러 개인지 확인해 보세요.
+
+![histogram_fixed acidity](charts/histogram_fixed%20acidity.png)
+![histogram_volatile acidity](charts/histogram_volatile%20acidity.png)
+![histogram_citric acid](charts/histogram_citric%20acid.png)
+![histogram_residual sugar](charts/histogram_residual%20sugar.png)
+![histogram_chlorides](charts/histogram_chlorides.png)
+![histogram_free sulfur dioxide](charts/histogram_free%20sulfur%20dioxide.png)
+![histogram_total sulfur dioxide](charts/histogram_total%20sulfur%20dioxide.png)
+![histogram_density](charts/histogram_density.png)
+![histogram_pH](charts/histogram_pH.png)
+![histogram_sulphates](charts/histogram_sulphates.png)
+![histogram_alcohol](charts/histogram_alcohol.png)
+![histogram_quality](charts/histogram_quality.png)
 
 ## 5. 상관분석 요약
 
@@ -78,6 +108,7 @@
 - 평가 방식: **cv**
 - 교차검증 fold 수: **5**
 - 최고 성능 모델: **RandomForestRegressor**
+- 하이퍼파라미터 탐색: 미수행 (기본 파라미터)
 - best model 저장: `best_model.joblib`
 - metadata 저장: `model_metadata.json`
 
