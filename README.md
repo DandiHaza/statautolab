@@ -10,7 +10,7 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.63-FF4B4B?logo=streamlit&logoColor=white)
 ![statsmodels](https://img.shields.io/badge/statsmodels-OLS-4B8BBE)
-![tests](https://img.shields.io/badge/tests-40%20passed-success)
+![tests](https://img.shields.io/badge/tests-47%20passed-success)
 
 **▶ 지금 바로 써보기 — <https://statautolab.streamlit.app/>**
 설치 없이 브라우저에서 CSV를 올려 분석까지 실행할 수 있습니다.
@@ -161,7 +161,7 @@ StatAutoLab/
 ├── docs/
 │   ├── sample_run/            # 커밋된 실제 실행 결과 (리포트 + 차트)
 │   └── UPDATE_LOG.md          # 개발 변경 이력
-├── tests/                     # pytest 40개
+├── tests/                     # pytest 47개
 ├── requirements.txt
 └── pytest.ini
 ```
@@ -226,13 +226,13 @@ flowchart TD
 
 - 타깃 컬럼 제외
 - `id`, `customer_id`, `user_id`, `*_id`, `*_key`, `uuid` 등 식별자 패턴 컬럼 제외
-- 날짜형 컬럼 감지 후 제외 (자동 feature engineering 미지원이므로 경고와 함께)
+- 날짜형 컬럼은 **연·월·일·요일 파생변수로 변환**해 학습에 사용 (원본 타임스탬프는 그대로 쓰지 않음)
 
 웹 UI에서는 추가로 **고상관 변수쌍**과 **VIF**를 계산해 제거 후보를 버튼으로 바로 반영할 수 있습니다.
 
 ### 웹 UI
 - **예제 데이터 원클릭 체험** — 파일이 없어도 5종 예제 중 하나를 고르면 타깃까지 설정되어 바로 실행할 수 있습니다.
-- 평가 방식(홀드아웃/교차검증), 검증 비율, fold 수, 랜덤 시드를 화면에서 지정할 수 있습니다.
+- 평가 방식(홀드아웃/교차검증), 검증 비율, fold 수, 랜덤 시드, 하이퍼파라미터 탐색을 화면에서 지정할 수 있습니다.
 - 방문자별로 업로드·결과 폴더가 분리되어 동시 접속 시에도 서로의 데이터에 영향을 주지 않습니다.
 
 ### 모델링
@@ -245,6 +245,7 @@ flowchart TD
 - 타깃 dtype 기준 문제 유형 자동 판별 (`--task-type`으로 강제 지정 가능)
 - 평가 방식 선택: holdout 또는 K-Fold 교차검증(분류는 StratifiedKFold, 표준편차 함께 보고)
 - 전처리 + 모델을 하나의 `Pipeline`으로 묶어 학습 → 데이터 누수 방지
+- **하이퍼파라미터 탐색**(선택) — `--tune`으로 모델별 격자 탐색. 탐색은 학습 분할 안에서만 수행해 검증 데이터가 새지 않습니다
 - best 모델을 전체 데이터로 재학습해 `joblib`으로 저장 + metadata JSON 동봉
 
 ### 회귀 분석 대시보드 (웹 UI)
@@ -254,6 +255,7 @@ flowchart TD
 
 ### 리포트와 로그
 - Markdown / HTML 리포트, 데이터 기반 **자동 인사이트 문장** 생성
+- 히스토그램·박스플롯·상관 히트맵을 리포트 본문에 수록 (경로는 상대경로라 폴더째 공유 가능)
 - 경고를 `warnings_summary.md`(사람용) + `warnings.json`(기계용) 두 형태로 저장
 - `experiments_log.csv`에 실행 이력 누적 (실패한 실행도 기록)
 
@@ -276,6 +278,7 @@ python run_analysis.py --help
 | `--task-type` | `auto` / `regression` / `classification` | `auto` |
 | `--eval-method` | `holdout` 또는 `cv` | `holdout` |
 | `--cv-folds` | 교차검증 fold 수 (2 이상) | `5` |
+| `--tune` | 하이퍼파라미터 격자 탐색 수행 | 꺼짐 |
 | `--test-size` | holdout 검증 비율 (0~1) | `0.2` |
 | `--random-state` | 랜덤 시드 | `42` |
 
@@ -349,8 +352,8 @@ baseline 모델 중 하나가 학습에 실패해도 전체 실행을 중단하�
 python -m pytest
 ```
 
-40개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 경고 수집, 실험 로그, 차트 폰트,
-CLI 인자 파싱을 검증합니다.
+47개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 날짜 파생변수, 하이퍼파라미터 탐색,
+경고 수집, 실험 로그, 차트 폰트, CLI 인자 파싱을 검증합니다.
 
 - `test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
 - `test_streamlit_app.py`는 Streamlit `AppTest`로 **웹 UI를 실제 렌더링**해 예제 데이터 진입,
@@ -362,8 +365,8 @@ CLI 인자 파싱을 검증합니다.
 
 현재 범위를 명확히 하기 위해 의도적으로 다루지 않은 부분입니다.
 
-- **날짜형 컬럼 feature engineering 없음** — 감지 후 제외만 합니다. 연/월/요일 파생 변수 추출이 다음 과제입니다.
-- **하이퍼파라미터 튜닝 없음** — baseline 비교가 목적이라 고정 파라미터를 씁니다.
+- **날짜 파생변수는 연·월·일·요일까지** — 공휴일, 시차, 주기성 인코딩(sin/cos)은 다루지 않습니다.
+- **탐색 그리드가 작습니다** — 호스팅 데모가 1 CPU라 모델당 3~4개 조합만 봅니다. 베이지안 최적화 등은 없습니다.
 - **결측 대체는 평균/최빈값 고정** — KNN·반복 대체 등 선택지가 없습니다.
 - **범주형은 OneHot 고정** — 고카디널리티 컬럼에서 차원이 급증할 수 있습니다.
 - **다중 클래스 ROC-AUC는 OvR 방식** — 지표 해석 시 참고가 필요합니다.

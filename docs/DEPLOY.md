@@ -40,10 +40,7 @@ curl -s -L -c cookies.txt -b cookies.txt -o NUL -w "%{http_code}" https://statau
 `.devcontainer/devcontainer.json`이 있어 Codespaces에서 바로 실행할 수 있습니다.
 컨테이너가 `packages.txt`와 `requirements.txt`를 설치한 뒤 8501 포트로 앱을 띄웁니다.
 
-다만 컨테이너 이미지가 **Python 3.11**이라 이 프로젝트의 기준 버전(3.12)과 다릅니다.
-현재 코드는 3.11에서도 동작하지만 로컬·배포 환경과 버전을 맞추려면
-`devcontainer.json`의 `image`를 `mcr.microsoft.com/devcontainers/python:1-3.12-bookworm`으로
-바꾸면 됩니다.
+컨테이너 이미지는 **Python 3.12**로, 로컬 개발 환경 및 Streamlit Cloud 설정과 같은 버전입니다.
 
 ## 재배포 후 점검 목록
 
