@@ -3,14 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
 
 
 IDENTIFIER_NAME_PATTERNS = ("id", "_id", "id_", "uuid", "key")
+
+# A raw timestamp is useless to a tree or a linear model, but its calendar parts carry
+# the seasonality and weekday effects that make date columns worth keeping.
+DATETIME_PARTS = ("year", "month", "day", "dayofweek")
 
 
 @dataclass
@@ -20,8 +25,27 @@ class PreprocessingSummary:
     numeric_columns: list[str]
     categorical_columns: list[str]
     datetime_columns: list[str]
+    datetime_derived_columns: list[str]
     identifier_columns: list[str]
     excluded_columns: list[str]
+
+
+def expand_datetime_parts(frame: pd.DataFrame) -> pd.DataFrame:
+    """Turn each datetime column into one numeric column per calendar part."""
+    expanded: dict[str, pd.Series] = {}
+    for column in frame.columns:
+        parsed = pd.to_datetime(frame[column], errors="coerce", format="mixed")
+        for part in DATETIME_PARTS:
+            expanded[f"{column}__{part}"] = getattr(parsed.dt, part)
+    return pd.DataFrame(expanded, index=frame.index)
+
+
+def datetime_part_names(_transformer, input_features) -> np.ndarray:
+    return np.array([f"{column}__{part}" for column in input_features for part in DATETIME_PARTS])
+
+
+def build_datetime_feature_names(datetime_columns: list[str]) -> list[str]:
+    return [f"{column}__{part}" for column in datetime_columns for part in DATETIME_PARTS]
 
 
 def _looks_like_identifier(column_name: str, series: pd.Series) -> bool:
@@ -117,11 +141,27 @@ def build_preprocessing_pipeline(
         ]
     )
 
+    datetime_pipeline = Pipeline(
+        steps=[
+            (
+                "expand",
+                FunctionTransformer(
+                    expand_datetime_parts,
+                    feature_names_out=datetime_part_names,
+                    validate=False,
+                ),
+            ),
+            ("imputer", SimpleImputer(strategy="median")),
+        ]
+    )
+
     transformers: list[tuple[str, Pipeline, list[str]]] = []
     if numeric_columns:
         transformers.append(("num", numeric_pipeline, numeric_columns))
     if categorical_columns:
         transformers.append(("cat", categorical_pipeline, categorical_columns))
+    if datetime_columns:
+        transformers.append(("date", datetime_pipeline, datetime_columns))
 
     preprocessor = ColumnTransformer(transformers=transformers, remainder="drop")
     summary = PreprocessingSummary(
@@ -130,8 +170,9 @@ def build_preprocessing_pipeline(
         numeric_columns=numeric_columns,
         categorical_columns=categorical_columns,
         datetime_columns=datetime_columns,
+        datetime_derived_columns=build_datetime_feature_names(datetime_columns),
         identifier_columns=identifier_columns,
-        excluded_columns=[target_column, *identifier_columns, *datetime_columns],
+        excluded_columns=[target_column, *identifier_columns],
     )
     return preprocessor, features, summary
 
@@ -152,6 +193,8 @@ def build_preprocessing_summary_markdown(summary: PreprocessingSummary) -> str:
     lines.append(f"- 수치형 컬럼: {', '.join(summary.numeric_columns) if summary.numeric_columns else '없음'}")
     lines.append(f"- 범주형 컬럼: {', '.join(summary.categorical_columns) if summary.categorical_columns else '없음'}")
     lines.append(f"- 날짜형 컬럼: {', '.join(summary.datetime_columns) if summary.datetime_columns else '없음'}")
+    if summary.datetime_derived_columns:
+        lines.append(f"- 날짜에서 생성된 파생변수: {', '.join(summary.datetime_derived_columns)}")
     lines.append(f"- 식별자 컬럼 자동 제외: {', '.join(summary.identifier_columns) if summary.identifier_columns else '없음'}")
     lines.append("")
     lines.append("## 적용 규칙")
@@ -163,7 +206,7 @@ def build_preprocessing_summary_markdown(summary: PreprocessingSummary) -> str:
     if summary.identifier_columns:
         lines.append("- 식별자 컬럼: 기본적으로 모델 입력에서 제외")
     if summary.datetime_columns:
-        lines.append("- 날짜형 컬럼: 자동 feature engineering 없이 제외")
+        lines.append(f"- 날짜형 컬럼: {', '.join(DATETIME_PARTS)} 파생변수로 변환 후 결측치는 중앙값 대체")
     lines.append("")
     return "\n".join(lines)
 

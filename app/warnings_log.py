@@ -32,10 +32,13 @@ def collect_data_warnings(
     if preprocessing_summary is not None and preprocessing_summary.datetime_columns:
         warnings.append(
             WarningRecord(
-                code="datetime_columns_excluded",
-                level="warning",
-                message="날짜형 컬럼이 감지되어 자동 feature engineering 없이 학습 대상에서 제외되었습니다.",
-                details={"columns": preprocessing_summary.datetime_columns},
+                code="datetime_columns_expanded",
+                level="info",
+                message="날짜형 컬럼이 감지되어 연·월·일·요일 파생변수로 변환되었습니다.",
+                details={
+                    "columns": preprocessing_summary.datetime_columns,
+                    "derived_columns": preprocessing_summary.datetime_derived_columns,
+                },
             )
         )
 

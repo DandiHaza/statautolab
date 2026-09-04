@@ -24,7 +24,30 @@ class PreprocessingTests(unittest.TestCase):
         self.assertEqual(summary.numeric_columns, ["num_col"])
         self.assertEqual(summary.categorical_columns, ["cat_col"])
         self.assertEqual(summary.datetime_columns, ["date_col"])
-        self.assertEqual(len(preprocessor.transformers), 2)
+        self.assertEqual(len(preprocessor.transformers), 3)
+
+    def test_datetime_columns_become_calendar_part_features(self) -> None:
+        df = pd.DataFrame(
+            {
+                "num_col": [1.0, 2.0, 3.0],
+                "date_col": pd.to_datetime(["2026-03-10", "2026-06-15", "2026-11-02"]),
+                "target": [0, 1, 0],
+            }
+        )
+
+        preprocessor, features, summary = build_preprocessing_pipeline(df, "target")
+        transformed = preprocessor.fit_transform(features)
+
+        self.assertEqual(
+            summary.datetime_derived_columns,
+            ["date_col__year", "date_col__month", "date_col__day", "date_col__dayofweek"],
+        )
+        self.assertNotIn("date_col", summary.excluded_columns)
+        # num_col + 4 calendar parts
+        self.assertEqual(transformed.shape, (3, 5))
+
+        names = list(preprocessor.get_feature_names_out())
+        self.assertIn("date__date_col__month", names)
 
     def test_preprocessing_summary_markdown_contains_column_groups(self) -> None:
         df = pd.DataFrame(

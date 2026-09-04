@@ -34,7 +34,7 @@ class WarningTests(unittest.TestCase):
         warnings = collect_data_warnings(profile, preprocessing_summary=summary)
         codes = {record.code for record in warnings}
 
-        self.assertIn("datetime_columns_excluded", codes)
+        self.assertIn("datetime_columns_expanded", codes)
         self.assertIn("high_missing_ratio_columns", codes)
         self.assertIn("correlation_matrix_not_generated", codes)
 
