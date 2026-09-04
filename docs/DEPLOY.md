@@ -50,6 +50,34 @@ curl -s -L -c cookies.txt -b cookies.txt -o NUL -w "%{http_code}" https://statau
 - [ ] 타깃을 지정해 분석을 실행하고 결과 파일이 다운로드되는지
 - [ ] 회귀 대시보드의 OLS 요약이 표시되는지 (statsmodels 설치 확인)
 
+## 트러블슈팅
+
+### 새 설정 키를 추가한 뒤 `KeyError` 가 뜬다
+
+```
+KeyError: ...
+File "/mount/src/statautolab/streamlit_app.py", line NNN, in main
+    value=bool(DEFAULT_SETTINGS["새키"]),
+```
+
+`app/config.py` 의 `DEFAULT_SETTINGS` 에 키를 추가하고 푸시했을 때 나타납니다.
+Streamlit Cloud 가 새 커밋을 받은 뒤 메인 스크립트(`streamlit_app.py`)만 다시 읽어
+실행하고, 이미 `sys.modules` 에 올라간 `app.config` 는 옛 버전 그대로 두기 때문입니다.
+새 코드가 옛 딕셔너리를 조회해서 나는 오류입니다.
+
+**진단** — GitHub 에서 두 파일이 같은 커밋인지 확인합니다. 저장소가 정상인데도 오류가
+나면 배포 프로세스의 모듈 캐시 문제입니다.
+
+```powershell
+curl -s https://raw.githubusercontent.com/DandiHaza/statautolab/main/app/config.py | Select-String "새키"
+```
+
+**조치** — 앱을 재시작하면 파이썬 프로세스가 새로 뜨면서 모든 모듈이 다시 import 됩니다.
+화면 우측 하단 `Manage app` → `⋮` → `Reboot app`.
+
+방어 코드로는 막을 수 없습니다. 크래시 지점을 `.get()` 으로 감싸도 분석을 실행하는
+순간 다른 모듈에서 같은 이유로 실패합니다.
+
 ## 플랫폼 제약
 
 **파일시스템이 휘발성입니다.** 업로드 파일(`.streamlit_uploads/`)과 분석 결과(`outputs/`)는
@@ -59,6 +87,6 @@ curl -s -L -c cookies.txt -b cookies.txt -o NUL -w "%{http_code}" https://statau
 **비활동 시 잠자기 모드로 전환됩니다.** 일정 기간 접속이 없으면 앱이 중지되고,
 다음 접속자가 깨우는 동안 수십 초가 걸립니다. 삭제된 것이 아니며 자동으로 복구됩니다.
 
-**`requirements.txt`에 `pytest`가 포함되어 있습니다.** 실행에는 불필요한 테스트 의존성이라
-배포 이미지가 조금 커집니다. 신경 쓰인다면 테스트 의존성을 별도 파일로 분리하면 되지만,
-동작에는 영향이 없습니다.
+**의존성은 두 파일로 나뉘어 있습니다.** 배포 환경은 `requirements.txt`(실행용)만
+설치합니다. `pytest` 같은 개발용은 `requirements-dev.txt` 에 있어 배포 이미지에 포함되지
+않습니다.

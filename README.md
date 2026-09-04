@@ -10,7 +10,7 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.63-FF4B4B?logo=streamlit&logoColor=white)
 ![statsmodels](https://img.shields.io/badge/statsmodels-OLS-4B8BBE)
-![tests](https://img.shields.io/badge/tests-47%20passed-success)
+![tests](https://img.shields.io/badge/tests-50%20passed-success)
 
 **▶ 지금 바로 써보기 — <https://statautolab.streamlit.app/>**
 설치 없이 브라우저에서 CSV를 올려 분석까지 실행할 수 있습니다.
@@ -95,6 +95,12 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
+테스트까지 돌리려면 개발용 의존성을 설치합니다.
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
 > macOS / Linux는 `source .venv/bin/activate`를 사용하세요.
 
 ### 2. 웹 UI로 실행
@@ -161,8 +167,10 @@ StatAutoLab/
 ├── docs/
 │   ├── sample_run/            # 커밋된 실제 실행 결과 (리포트 + 차트)
 │   └── UPDATE_LOG.md          # 개발 변경 이력
-├── tests/                     # pytest 47개
-├── requirements.txt
+├── tests/                     # pytest 50개
+├── requirements.txt           # 실행용 의존성
+├── requirements-dev.txt       # 개발·테스트용 (실행용 + pytest)
+├── packages.txt               # 배포 환경 apt 패키지 (차트 한글 폰트)
 └── pytest.ini
 ```
 
@@ -226,6 +234,7 @@ flowchart TD
 
 - 타깃 컬럼 제외
 - `id`, `customer_id`, `user_id`, `*_id`, `*_key`, `uuid` 등 식별자 패턴 컬럼 제외
+  (웹 UI도 같은 규칙으로 기본 선택에서 빼고, 무엇을 왜 뺐는지 화면에 표시합니다)
 - 날짜형 컬럼은 **연·월·일·요일 파생변수로 변환**해 학습에 사용 (원본 타임스탬프는 그대로 쓰지 않음)
 
 웹 UI에서는 추가로 **고상관 변수쌍**과 **VIF**를 계산해 제거 후보를 버튼으로 바로 반영할 수 있습니다.
@@ -352,7 +361,7 @@ baseline 모델 중 하나가 학습에 실패해도 전체 실행을 중단하�
 python -m pytest
 ```
 
-47개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 날짜 파생변수, 하이퍼파라미터 탐색,
+50개 테스트가 설정 병합, 파일 로딩, 프로파일링, 전처리, 날짜 파생변수, 하이퍼파라미터 탐색,
 경고 수집, 실험 로그, 차트 폰트, CLI 인자 파싱을 검증합니다.
 
 - `test_smoke.py`는 EDA 경로와 모델링 경로를 **CLI 진입점부터 리포트 생성까지 end-to-end로** 실행합니다.
